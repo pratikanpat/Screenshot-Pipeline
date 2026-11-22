@@ -335,3 +335,4 @@ def run_classification(
         "failed": failed,
         "elapsed_s": round(time.monotonic() - start, 2),
     }
+

@@ -75,3 +75,4 @@ def images_by_category(
     )
     conn.close()
     return [ImageBase(**r) for r in rows]
+

@@ -256,3 +256,4 @@ def run_embeddings(
         "failed": failed,
         "elapsed_s": round(time.monotonic() - start, 2),
     }
+

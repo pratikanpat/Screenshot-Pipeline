@@ -164,3 +164,4 @@ def get_full_category_tree(conn: sqlite3.Connection) -> dict:
         cnt = row["count"]
         tree.setdefault(cat, {})[sub] = cnt
     return tree
+

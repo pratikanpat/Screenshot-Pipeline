@@ -105,3 +105,4 @@ def search(
         results=results,
         time_ms=elapsed_ms,
     )
+

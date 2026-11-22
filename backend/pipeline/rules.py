@@ -269,3 +269,4 @@ def extract_tags(text: str, max_tags: int = 10, min_len: int = 3) -> list[str]:
             break
 
     return tags
+

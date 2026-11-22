@@ -241,3 +241,4 @@ def get_library_stats(conn: sqlite3.Connection) -> dict:
         "pending": pending,
         "failed": failed,
     }
+
