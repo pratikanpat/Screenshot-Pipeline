@@ -1,12 +1,13 @@
 """
 backend/run_pipeline.py
 ────────────────────────
-CLI entry-point for the Screenshot Knowledge Base ingestion pipeline.
+CLI entry-point for the Screenshot Knowledge Base pipeline.
 
 Commands
 ────────
   ingest  — scan a source folder and insert new images into the database
   status  — print a summary of the pipeline state from the database
+  ocr     — run OCR over all pending images (PaddleOCR primary, Tesseract fallback)
 
 Usage examples
 ──────────────
@@ -15,6 +16,18 @@ Usage examples
 
   # Ingest from a custom folder, limit to 100 files, use a custom DB
   python -m backend.run_pipeline ingest --source ~/Pictures --limit 100 --db ./data/library.db
+
+  # Run OCR on all pending images
+  python -m backend.run_pipeline ocr
+
+  # OCR first 20 images, with a custom DB path
+  python -m backend.run_pipeline ocr --limit 20 --db ./data/library.db
+
+  # Re-process images that previously failed
+  python -m backend.run_pipeline ocr --retry-failed
+
+  # Force re-run OCR on every image (clears existing results)
+  python -m backend.run_pipeline ocr --force
 
   # Print DB status
   python -m backend.run_pipeline status --db ./data/library.db
@@ -31,6 +44,7 @@ from backend.config import DATABASE, DEFAULT_SOURCE, LOGS_DIR
 from backend.db.database import get_connection
 from backend.pipeline.ingestion import run_ingestion
 from backend.pipeline.logger import setup_logger
+from backend.pipeline.ocr import run_ocr
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Module-level logger (WARNING+ to console, INFO+ to file)
@@ -227,6 +241,118 @@ def status(db_path: str) -> None:
             click.echo(f"  {st:<17}: {count}")
 
     click.echo()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `ocr` command
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@cli.command("ocr")
+@click.option(
+    "--limit",
+    default=None,
+    type=int,
+    show_default=True,
+    help="Maximum number of images to OCR (omit for all pending).",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Re-process images that already have an OCR result (clears existing results).",
+)
+@click.option(
+    "--retry-failed",
+    "retry_failed",
+    is_flag=True,
+    default=False,
+    help="Also retry images whose OCR previously failed.",
+)
+@click.option(
+    "--db",
+    "db_path",
+    default=str(DATABASE),
+    show_default=True,
+    type=click.Path(path_type=str),
+    help="Path to the SQLite database file.",
+)
+def ocr_cmd(
+    limit: int | None,
+    force: bool,
+    retry_failed: bool,
+    db_path: str,
+) -> None:
+    """Run OCR over all pending images using PaddleOCR (primary) and
+    Tesseract (fallback).
+
+    PaddleOCR is initialised once per batch run to avoid repeatedly loading
+    the ~400 MB model.  Results are checkpointed every CHECKPOINT_INTERVAL
+    images so a crash loses at most that many results.
+
+    Use --force to re-run OCR on images that were already processed, or
+    --retry-failed to retry images that previously errored out.
+    """
+    _print_banner()
+
+    db = Path(db_path)
+
+    click.echo(f"  Database     : {db}")
+    if limit:
+        click.echo(f"  Limit        : {limit} image(s)")
+    if force:
+        click.secho("  Mode         : FORCE (existing results will be cleared)", fg="yellow")
+    if retry_failed:
+        click.secho("  Retry failed : ON", fg="yellow")
+    click.echo()
+
+    _log.info(
+        "ocr command started — db=%s limit=%s force=%s retry_failed=%s",
+        db, limit, force, retry_failed,
+    )
+
+    try:
+        conn = get_connection(db)
+    except Exception as exc:  # noqa: BLE001
+        click.secho(f"ERROR: could not open database: {exc}", fg="red", err=True)
+        _log.error("Failed to open database '%s': %s", db, exc, exc_info=True)
+        sys.exit(1)
+
+    try:
+        stats = run_ocr(
+            conn=conn,
+            limit=limit,
+            force=force,
+            retry_failed=retry_failed,
+        )
+    except Exception as exc:  # noqa: BLE001
+        click.secho(f"ERROR: unexpected OCR failure: {exc}", fg="red", err=True)
+        _log.error("Unexpected OCR error: %s", exc, exc_info=True)
+        sys.exit(1)
+    finally:
+        conn.close()
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    click.echo()
+    click.secho("  ── OCR Summary ─────────────────────────────────", fg="cyan")
+    click.echo(f"  Total processed  : {stats['total']}")
+    click.secho(f"  Succeeded        : {stats['success']}", fg="green")
+    click.secho(
+        f"  Failed           : {stats['failed']}",
+        fg="red" if stats["failed"] else "white",
+    )
+    click.echo(f"  Avg confidence   : {stats['avg_confidence']:.1f}%")
+    click.echo(f"  Elapsed time     : {stats['elapsed_s']:.1f}s")
+    click.echo()
+
+    _log.info(
+        "ocr complete — total=%d success=%d failed=%d avg_conf=%.1f elapsed=%.1fs",
+        stats["total"],
+        stats["success"],
+        stats["failed"],
+        stats["avg_confidence"],
+        stats["elapsed_s"],
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
