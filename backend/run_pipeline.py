@@ -356,6 +356,129 @@ def ocr_cmd(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# classify command
+# ─────────────────────────────────────────────────────────────────────────────
+
+@cli.command()
+@click.option("--limit", type=int, default=None, help="Max images to classify.")
+@click.option("--force", is_flag=True, help="Re-classify already-classified images.")
+@click.option("--db", "db_path", type=click.Path(), default=None,
+              help="SQLite database path.")
+def classify(limit, force, db_path):
+    """Classify screenshots using CLIP zero-shot + keyword rules."""
+    from backend.db.database import get_connection
+    from backend.pipeline.classifier import run_classification
+
+    db = Path(db_path) if db_path else DATABASE
+    conn = get_connection(db)
+
+    _print_banner("CLASSIFIER")
+    click.echo(f"  Database : {db}")
+    click.echo(f"  Limit    : {limit or 'all'}")
+    click.echo(f"  Force    : {force}")
+    click.echo()
+
+    stats = run_classification(conn, limit=limit, force=force)
+    conn.close()
+
+    click.secho("\n  Classification complete.", fg="green")
+    click.echo(f"  Total     : {stats['total']}")
+    click.secho(f"  Success   : {stats['success']}", fg="green")
+    click.secho(f"  Failed    : {stats['failed']}", fg="red" if stats["failed"] else "white")
+    click.echo(f"  Elapsed   : {stats['elapsed_s']:.1f}s")
+    click.echo()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# embed command
+# ─────────────────────────────────────────────────────────────────────────────
+
+@cli.command()
+@click.option("--limit", type=int, default=None, help="Max images to embed.")
+@click.option("--force", is_flag=True, help="Re-embed already embedded images.")
+@click.option("--db", "db_path", type=click.Path(), default=None,
+              help="SQLite database path.")
+def embed(limit, force, db_path):
+    """Generate CLIP embeddings and store in ChromaDB for semantic search."""
+    from backend.db.database import get_connection
+    from backend.pipeline.embeddings import run_embeddings
+
+    db = Path(db_path) if db_path else DATABASE
+    conn = get_connection(db)
+
+    _print_banner("EMBEDDINGS")
+    click.echo(f"  Database : {db}")
+    click.echo()
+
+    stats = run_embeddings(conn, limit=limit, force=force)
+    conn.close()
+
+    if stats.get("skipped"):
+        click.secho("  Skipped — ChromaDB or CLIP model not available.", fg="yellow")
+        return
+
+    click.secho("\n  Embedding complete.", fg="green")
+    click.echo(f"  Total   : {stats['total']}")
+    click.secho(f"  Success : {stats['success']}", fg="green")
+    click.secho(f"  Failed  : {stats['failed']}", fg="red" if stats["failed"] else "white")
+    click.echo(f"  Elapsed : {stats['elapsed_s']:.1f}s")
+    click.echo()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# process-all command  (ingest → ocr → classify → embed in one shot)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@cli.command(name="process-all")
+@click.option("--source", type=click.Path(exists=True), default=None,
+              help="Screenshot source folder.")
+@click.option("--limit", type=int, default=None, help="Max images per stage.")
+@click.option("--db", "db_path", type=click.Path(), default=None,
+              help="SQLite database path.")
+def process_all(source, limit, db_path):
+    """Run the full pipeline: ingest → OCR → classify → embed."""
+    import time as _time
+    from backend.db.database import get_connection
+    from backend.pipeline.ingestion import run_ingestion
+    from backend.pipeline.ocr import run_ocr
+    from backend.pipeline.classifier import run_classification
+    from backend.pipeline.embeddings import run_embeddings
+
+    db = Path(db_path) if db_path else DATABASE
+    src = Path(source) if source else DEFAULT_SOURCE
+    conn = get_connection(db)
+
+    _print_banner("FULL PIPELINE")
+    click.echo(f"  Source   : {src}")
+    click.echo(f"  Database : {db}")
+    click.echo(f"  Limit    : {limit or 'all'}")
+    click.echo()
+
+    t0 = _time.monotonic()
+
+    click.secho("── Stage 1: Ingest ─────────────────", fg="cyan")
+    i_stats = run_ingestion(src, limit, conn)
+    click.echo(f"  {i_stats['ok']} ingested, {i_stats['skipped']} skipped, {i_stats['error']} errors\n")
+
+    click.secho("── Stage 2: OCR ────────────────────", fg="cyan")
+    o_stats = run_ocr(conn, limit=limit)
+    click.echo(f"  {o_stats['success']} ok, {o_stats['failed']} failed, avg_conf={o_stats['avg_confidence']:.1f}%\n")
+
+    click.secho("── Stage 3: Classify ───────────────", fg="cyan")
+    c_stats = run_classification(conn, limit=limit)
+    click.echo(f"  {c_stats['success']} ok, {c_stats['failed']} failed\n")
+
+    click.secho("── Stage 4: Embed ──────────────────", fg="cyan")
+    e_stats = run_embeddings(conn, limit=limit)
+    click.echo(f"  {e_stats.get('success', 0)} embedded\n")
+
+    conn.close()
+    elapsed = _time.monotonic() - t0
+    click.secho(f"✓ Pipeline complete in {elapsed:.1f}s", fg="green", bold=True)
+    click.echo()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Entry-point guard
 # ─────────────────────────────────────────────────────────────────────────────
 

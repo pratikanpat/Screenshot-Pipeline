@@ -74,7 +74,7 @@ _CREATE_CATEGORIES = """
 CREATE TABLE IF NOT EXISTS categories (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    image_id        INTEGER NOT NULL
+    image_id        INTEGER NOT NULL UNIQUE
                         REFERENCES images(id) ON DELETE CASCADE,
 
     -- Classification output
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS categories (
     tags            TEXT    NOT NULL DEFAULT '[]',
                                                 -- JSON array, e.g. '["python","tutorial"]'
     confidence      REAL,                       -- 0.0–1.0
-    method          TEXT    NOT NULL,           -- "clip" | "rules" | "hybrid"
+    method          TEXT    NOT NULL,           -- "clip_zeroshot" | "rule_based" | "fallback"
 
     created_at      TEXT    NOT NULL            -- ISO-8601
 );
