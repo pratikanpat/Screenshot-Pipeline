@@ -63,9 +63,12 @@ _BANNER = r"""
 """
 
 
-def _print_banner() -> None:
-    """Print the CLI banner to stdout."""
+def _print_banner(stage: str = "") -> None:
+    """Print the CLI banner to stdout, with an optional stage label."""
     click.echo(_BANNER)
+    if stage:
+        click.secho(f"  Stage: {stage}", fg="cyan", bold=True)
+        click.echo()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
