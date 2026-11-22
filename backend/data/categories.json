@@ -1,0 +1,46 @@
+{
+  "Technology": [
+    "Code & Development",
+    "AI & Machine Learning",
+    "Open Source",
+    "Tools & Apps",
+    "Tutorials"
+  ],
+  "Finance": [
+    "Receipts & Invoices",
+    "Bank Statements",
+    "UPI Transactions",
+    "Budgets"
+  ],
+  "Social & Content": [
+    "LinkedIn",
+    "Twitter/X",
+    "Instagram",
+    "YouTube",
+    "Quotes & Inspiration"
+  ],
+  "Learning": [
+    "Articles & Blogs",
+    "Notes",
+    "Books & Reading",
+    "Courses"
+  ],
+  "Personal": [
+    "Chats & Messages",
+    "Reminders",
+    "Calendar & Events",
+    "Contacts"
+  ],
+  "Maps & Places": [
+    "Navigation",
+    "Locations"
+  ],
+  "Media & Entertainment": [
+    "Movies & Shows",
+    "Music",
+    "Gaming"
+  ],
+  "Other": [
+    "Uncategorized"
+  ]
+}
