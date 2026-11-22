@@ -15,7 +15,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+# python-dotenv is optional — works fine without it
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _DOTENV_AVAILABLE = True
+except ImportError:
+    _DOTENV_AVAILABLE = False
 
 # ── Repo-root detection ───────────────────────────────────────────────────────
 # This file lives at <repo_root>/backend/config.py
@@ -24,7 +29,8 @@ from dotenv import load_dotenv
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
 # Load .env from the repo root (silently skipped if the file doesn't exist)
-load_dotenv(PROJECT_ROOT / ".env")
+if _DOTENV_AVAILABLE:
+    _load_dotenv(PROJECT_ROOT / ".env")
 
 # ── Directory layout ─────────────────────────────────────────────────────────
 DATA_DIR: Path = PROJECT_ROOT / "data"
