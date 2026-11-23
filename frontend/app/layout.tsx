@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+import AppSidebar from "@/components/AppSidebar";
 
 export const metadata: Metadata = {
-  title: "ScreenshotKB — Your Personal Screenshot Library",
+  title: "ScreenshotKB — Your Personal Screenshot Archive",
   description:
-    "Search, browse and auto-organise your screenshot collection. Keyword search, semantic search, auto-categorisation.",
+    "Search, browse and auto-organise your screenshot collection. Keyword search, OCR-powered, auto-categorised.",
 };
 
 export default function RootLayout({
@@ -17,10 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-zinc-950 text-zinc-100">
-        <Navbar />
-        <main className="pt-16">{children}</main>
+    <html lang="en">
+      <body>
+        <div className="app-shell">
+          <AppSidebar />
+          <main className="app-main">{children}</main>
+        </div>
       </body>
     </html>
   );

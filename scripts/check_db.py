@@ -8,3 +8,4 @@ print("tables:", tables)
 count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
 print("image count:", count)
 conn.close()
+

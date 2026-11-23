@@ -1,66 +1,68 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { type ImageBase, type SearchResult } from "@/lib/api";
 import ImageCard from "./ImageCard";
-
-interface Props {
-  images: (ImageBase | SearchResult)[];
-  loading?: boolean;
-  snippets?: Record<number, string>;
-}
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 animate-pulse">
-      <div className="w-full aspect-video bg-zinc-800" />
-      <div className="p-3 space-y-2">
-        <div className="h-2 bg-zinc-800 rounded w-3/4" />
-        <div className="h-2 bg-zinc-800 rounded w-1/2" />
-      </div>
-    </div>
-  );
-}
 
 function getId(img: ImageBase | SearchResult): number {
   return "id" in img ? img.id : img.image_id;
 }
 
-export default function ImageGrid({ images, loading, snippets }: Props) {
+function SkeletonCard() {
+  return (
+    <div className="img-card" style={{ cursor: "default" }}>
+      <div className="img-card-thumb skeleton" />
+      <div className="img-card-meta" style={{ gap: 6 }}>
+        <div className="skeleton" style={{ height: 16, width: "50%", borderRadius: 4 }} />
+        <div className="skeleton" style={{ height: 11, width: "35%", borderRadius: 4 }} />
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  images: (ImageBase | SearchResult)[];
+  loading?: boolean;
+  snippets?: Record<number, string>;
+  emptyMessage?: string;
+  emptyHint?: string;
+}
+
+export default function ImageGrid({
+  images,
+  loading,
+  snippets,
+  emptyMessage = "No screenshots found",
+  emptyHint = "Try a different search term or browse the library",
+}: Props) {
   if (loading) {
     return (
-      <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="break-inside-avoid">
-            <SkeletonCard />
-          </div>
-        ))}
+      <div className="img-grid">
+        {Array.from({ length: 15 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
     );
   }
 
   if (images.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <span className="text-6xl mb-4">🔍</span>
-        <p className="text-zinc-400 text-lg font-medium">No screenshots found</p>
-        <p className="text-zinc-600 text-sm mt-1">
-          Try a different search term or browse the library
-        </p>
+      <div className="empty-state">
+        <Search size={40} />
+        <p className="empty-title">{emptyMessage}</p>
+        <p className="empty-sub">{emptyHint}</p>
       </div>
     );
   }
 
   return (
-    <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-      {images.map((img) => {
+    <div className="img-grid">
+      {images.map(img => {
         const id = getId(img);
         return (
-          <div key={id} className="break-inside-avoid">
-            <ImageCard
-              image={img}
-              snippet={snippets?.[id] ?? ("snippet" in img ? img.snippet : undefined)}
-            />
-          </div>
+          <ImageCard
+            key={id}
+            image={img}
+            snippet={snippets?.[id] ?? ("snippet" in img ? img.snippet : undefined)}
+          />
         );
       })}
     </div>

@@ -3,7 +3,31 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  Calendar,
+  Layers,
+  FileText,
+  Tag,
+  Maximize2,
+} from "lucide-react";
 import { api, type ImageDetail } from "@/lib/api";
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
 
 export default function ImageDetailPage() {
   const params = useParams();
@@ -31,89 +55,153 @@ export default function ImageDetailPage() {
     });
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-12 animate-pulse space-y-4">
-        <div className="h-8 bg-zinc-800 rounded w-1/3" />
-        <div className="h-96 bg-zinc-800 rounded-2xl" />
+      <div className="page-content" style={{ maxWidth: 1200 }}>
+        <div style={{ height: 20, width: 160, borderRadius: 6, marginBottom: 24 }} className="skeleton" />
+        <div className="detail-layout">
+          <div className="detail-image-col">
+            <div style={{ height: 500, borderRadius: 10 }} className="skeleton" />
+          </div>
+          <div className="detail-meta-col">
+            {[120, 200, 160].map((h, i) => (
+              <div key={i} style={{ height: h, borderRadius: 10 }} className="skeleton" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
+  /* ── Not found ── */
   if (!image) {
     return (
-      <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-        <span className="text-5xl">😕</span>
-        <p className="text-zinc-400 mt-4">Screenshot not found.</p>
-        <button onClick={() => router.back()} className="mt-4 text-indigo-400 hover:underline text-sm">
-          ← Go back
+      <div className="page-content" style={{ maxWidth: 480, textAlign: "center", paddingTop: 80 }}>
+        <p style={{ fontSize: 15, color: "var(--text-muted)", marginBottom: 12 }}>Screenshot not found.</p>
+        <button onClick={() => router.back()} className="btn btn-ghost">
+          <ArrowLeft size={14} />
+          Go back
         </button>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      {/* Back */}
-      <button
-        onClick={() => router.back()}
-        className="text-sm text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-1 transition"
-      >
-        ← Back
-      </button>
+  const tags: string[] = image.tags ?? [];
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Image panel */}
-        <div className="flex-1 min-w-0">
-          <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900">
+  return (
+    <div className="page-content" style={{ maxWidth: 1200 }}>
+      {/* Back breadcrumb */}
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={() => router.back()} className="btn btn-ghost" style={{ padding: "5px 10px" }}>
+          <ArrowLeft size={13} />
+          Back
+        </button>
+      </div>
+
+      <div className="detail-layout">
+        {/* ── Image column ── */}
+        <div className="detail-image-col">
+          <div
+            style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 300,
+              maxHeight: "80vh",
+            }}
+          >
             {!imgError ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={api.fileUrl(id)}
                 alt={image.filename}
-                className="w-full h-auto max-h-[80vh] object-contain"
+                style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain", display: "block" }}
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="flex items-center justify-center h-64 text-zinc-600 text-sm">
-                Image file not accessible
+              <div style={{ padding: 32, color: "var(--text-faint)", fontSize: 13, textAlign: "center" }}>
+                <Maximize2 size={32} style={{ marginBottom: 8, opacity: 0.3 }} />
+                <p>Image file not accessible</p>
+                <p style={{ fontSize: 11, marginTop: 4 }}>{image.original_path}</p>
               </div>
             )}
           </div>
 
           {/* Filename */}
-          <p className="text-xs text-zinc-600 mt-2 px-1 truncate">{image.filename}</p>
+          <p
+            className="font-mono"
+            style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, paddingLeft: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            {image.filename}
+          </p>
         </div>
 
-        {/* Meta panel */}
-        <aside className="lg:w-80 shrink-0 space-y-4">
-          {/* Category */}
-          {image.category && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Category</p>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 rounded-lg bg-indigo-900/50 text-indigo-300 text-sm border border-indigo-800">
-                  {image.category}
-                </span>
-                {image.subcategory && (
-                  <span className="px-2 py-1 rounded-lg bg-zinc-800 text-zinc-400 text-sm">
-                    {image.subcategory}
-                  </span>
-                )}
-                {image.content_type && (
-                  <span className="px-2 py-1 rounded-lg bg-zinc-800 text-zinc-500 text-xs">
-                    {image.content_type}
-                  </span>
-                )}
+        {/* ── Meta column ── */}
+        <div className="detail-meta-col">
+
+          {/* Category + tags */}
+          {(image.category || tags.length > 0) && (
+            <div className="panel">
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <Layers size={13} color="var(--text-faint)" />
+                <span className="section-label">Category</span>
               </div>
-              {image.tags && image.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {image.tags.map((tag) => (
+              {image.category && (
+                <div style={{ marginBottom: tags.length > 0 ? 10 : 0 }}>
+                  <span className="cat-badge" style={{ marginRight: 6, marginBottom: 4, display: "inline-block" }}>
+                    {image.category}
+                  </span>
+                  {image.subcategory && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 4,
+                        padding: "2px 7px",
+                        display: "inline-block",
+                      }}
+                    >
+                      {image.subcategory}
+                    </span>
+                  )}
+                </div>
+              )}
+              {tags.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {tags.map(tag => (
                     <Link
                       key={tag}
                       href={`/search?q=${encodeURIComponent(tag)}&mode=keyword`}
-                      className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 hover:text-indigo-400 hover:bg-zinc-700 transition"
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 4,
+                        padding: "2px 7px",
+                        textDecoration: "none",
+                        transition: "color 150ms ease, border-color 150ms ease",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 3,
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.color = "var(--accent-hover)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                      }}
                     >
+                      <Tag size={9} />
                       {tag}
                     </Link>
                   ))}
@@ -123,46 +211,76 @@ export default function ImageDetailPage() {
           )}
 
           {/* File info */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-2">
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">File Info</p>
-            {[
-              ["Captured", image.captured_at ? new Date(image.captured_at).toLocaleString("en-IN") : "Unknown"],
-              ["Dimensions", image.width && image.height ? `${image.width} × ${image.height}` : "—"],
-              ["Size", image.file_size ? `${(image.file_size / 1024).toFixed(0)} KB` : "—"],
-              ["OCR Engine", image.engine ?? "—"],
-              ["OCR Confidence", image.ocr_confidence ? `${image.ocr_confidence.toFixed(1)}%` : "—"],
-              ["Words found", image.word_count?.toString() ?? "—"],
-              ["Method", image.method ?? "—"],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between text-xs">
-                <span className="text-zinc-600">{k}</span>
-                <span className="text-zinc-400 text-right max-w-[60%] truncate">{v}</span>
-              </div>
-            ))}
+          <div className="panel">
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+              <Calendar size={13} color="var(--text-faint)" />
+              <span className="section-label">File Info</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                ["Captured",    formatDate(image.captured_at)],
+                ["Dimensions",  image.width && image.height ? `${image.width} × ${image.height} px` : "—"],
+                ["File size",   formatBytes(image.file_size)],
+                ["OCR engine",  image.engine ?? "—"],
+                ["Confidence",  image.ocr_confidence ? `${image.ocr_confidence.toFixed(1)}%` : "—"],
+                ["Words",       image.word_count?.toLocaleString() ?? "—"],
+              ].map(([k, v]) => (
+                <div key={k} className="meta-row">
+                  <span className="meta-key">{k}</span>
+                  <span className="meta-value font-mono">{v}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* OCR text */}
           {image.extracted_text && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                  Extracted Text
-                </p>
+            <div className="panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <FileText size={13} color="var(--text-faint)" />
+                  <span className="section-label">OCR Text</span>
+                </div>
                 <button
                   onClick={copyText}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition"
+                  className="btn-icon"
+                  title="Copy text"
+                  style={{ border: "none" }}
                 >
-                  {copied ? "✓ Copied" : "Copy"}
+                  {copied ? (
+                    <Check size={13} color="var(--success)" />
+                  ) : (
+                    <Copy size={13} />
+                  )}
                 </button>
               </div>
-              <div className="max-h-48 overflow-y-auto">
-                <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap">
+              <div
+                style={{
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  padding: "10px 12px",
+                  background: "var(--bg-elevated)",
+                  borderRadius: 7,
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <p
+                  className="font-mono"
+                  style={{
+                    fontSize: 11.5,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    margin: 0,
+                  }}
+                >
                   {image.extracted_text}
                 </p>
               </div>
             </div>
           )}
-        </aside>
+        </div>
       </div>
     </div>
   );

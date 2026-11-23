@@ -2,34 +2,48 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { Search, X } from "lucide-react";
 
-type Mode = "keyword" | "semantic" | "hybrid";
+export type SearchMode = "keyword" | "semantic" | "hybrid";
 
 interface Props {
   defaultQuery?: string;
-  defaultMode?: Mode;
+  defaultMode?: SearchMode;
   autoFocus?: boolean;
-  onSearch?: (q: string, mode: Mode) => void;
+  onSearch?: (q: string, mode: SearchMode) => void;
+  compact?: boolean;
 }
+
+const MODES: { value: SearchMode; label: string; desc: string; available: boolean }[] = [
+  { value: "keyword",  label: "Keyword",  desc: "Exact & prefix match",   available: true },
+  { value: "semantic", label: "Semantic", desc: "By meaning — coming soon", available: false },
+  { value: "hybrid",   label: "Hybrid",   desc: "Best of both — coming soon", available: false },
+];
 
 export default function SearchBar({
   defaultQuery = "",
   defaultMode = "keyword",
   autoFocus = false,
   onSearch,
+  compact = false,
 }: Props) {
   const router = useRouter();
   const [q, setQ] = useState(defaultQuery);
-  const [mode, setMode] = useState<Mode>(defaultMode);
+  const [mode, setMode] = useState<SearchMode>(defaultMode);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cmd/Ctrl+K global shortcut
+  /* sync when URL changes */
+  useEffect(() => { setQ(defaultQuery); }, [defaultQuery]);
+  useEffect(() => { setMode(defaultMode); }, [defaultMode]);
+
+  /* ⌘K / Ctrl+K global shortcut */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         inputRef.current?.focus();
+        inputRef.current?.select();
       }
     };
     window.addEventListener("keydown", handler);
@@ -38,78 +52,135 @@ export default function SearchBar({
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!q.trim()) return;
+    const trimmed = q.trim();
+    if (!trimmed) return;
     if (onSearch) {
-      onSearch(q.trim(), mode);
+      onSearch(trimmed, mode);
     } else {
       startTransition(() => {
-        router.push(`/search?q=${encodeURIComponent(q.trim())}&mode=${mode}`);
+        router.push(`/search?q=${encodeURIComponent(trimmed)}&mode=${mode}`);
       });
     }
   };
 
-  const modes: { value: Mode; label: string; desc: string }[] = [
-    { value: "keyword", label: "Keyword", desc: "Exact & prefix match" },
-    { value: "semantic", label: "Semantic", desc: "Search by meaning (CLIP)" },
-    { value: "hybrid", label: "Hybrid", desc: "Best of both" },
-  ];
-
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-3">
-      {/* Search input */}
-      <form onSubmit={submit} className="relative">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-          <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M21 21l-4.35-4.35M11 19A8 8 0 1 0 11 3a8 8 0 0 0 0 16z" />
-          </svg>
+    <div style={{ width: "100%", maxWidth: compact ? "none" : 640 }}>
+      {/* Input row */}
+      <form onSubmit={submit} style={{ position: "relative" }}>
+        {/* Search icon */}
+        <div
+          style={{
+            position: "absolute",
+            left: 14,
+            top: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <Search size={16} color="var(--text-faint)" />
         </div>
+
         <input
           ref={inputRef}
           autoFocus={autoFocus}
           value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder='Search screenshots… (⌘K)'
-          className="w-full pl-12 pr-24 py-4 rounded-2xl bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder-zinc-500 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="Search screenshots…"
+          className="search-input"
         />
+
+        {/* Clear */}
         {q && (
           <button
             type="button"
             onClick={() => setQ("")}
-            className="absolute right-16 inset-y-0 flex items-center text-zinc-500 hover:text-zinc-300 px-2"
+            style={{
+              position: "absolute",
+              right: compact ? 12 : 90,
+              top: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-faint)",
+              padding: "0 4px",
+            }}
           >
-            ✕
+            <X size={14} />
           </button>
         )}
-        <button
-          type="submit"
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition"
-        >
-          Search
-        </button>
+
+        {/* Keyboard hint OR submit button */}
+        {compact ? (
+          <div
+            style={{
+              position: "absolute",
+              right: 12,
+              top: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              pointerEvents: "none",
+            }}
+          >
+            {!q && (
+              <kbd
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-faint)",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                  padding: "2px 5px",
+                  fontFamily: "monospace",
+                }}
+              >
+                ⌘K
+              </kbd>
+            )}
+          </div>
+        ) : (
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ position: "absolute", right: 6, top: 6, bottom: 6 }}
+          >
+            Search
+          </button>
+        )}
       </form>
 
-      {/* Mode selector */}
-      <div className="flex items-center gap-2">
-        {modes.map((m) => (
-          <button
-            key={m.value}
-            onClick={() => setMode(m.value)}
-            title={m.desc}
-            className={`px-3 py-1 rounded-lg text-xs font-medium border transition ${
-              mode === m.value
-                ? "bg-indigo-600 border-indigo-600 text-white"
-                : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-            }`}
-          >
-            {m.label}
-          </button>
-        ))}
-        <span className="text-xs text-zinc-600 ml-1">
-          {modes.find((m) => m.value === mode)?.desc}
-        </span>
-      </div>
+      {/* Mode pills (only show in full mode) */}
+      {!compact && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+          {MODES.map(m => (
+            <button
+              key={m.value}
+              onClick={() => m.available && setMode(m.value)}
+              title={m.desc}
+              className={`chip ${mode === m.value && m.available ? "active" : ""}`}
+              style={{
+                opacity: m.available ? 1 : 0.4,
+                cursor: m.available ? "pointer" : "not-allowed",
+              }}
+            >
+              {m.label}
+              {!m.available && (
+                <span style={{ fontSize: 10, color: "var(--text-faint)" }}>·soon</span>
+              )}
+            </button>
+          ))}
+          <span style={{ fontSize: 12, color: "var(--text-faint)", marginLeft: 2 }}>
+            {MODES.find(m => m.value === mode)?.desc}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -70,3 +70,4 @@ for status, count in counts:
 
 conn.close()
 print("\nMigration complete. Run the pipeline again.")
+

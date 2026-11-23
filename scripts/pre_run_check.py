@@ -19,3 +19,4 @@ print("pending for OCR:", pending)
 
 conn.close()
 print("All checks passed.")
+

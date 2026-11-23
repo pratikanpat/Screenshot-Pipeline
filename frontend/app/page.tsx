@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Layers } from "lucide-react";
 import { api, type ProcessStatus, type CategoryInfo, type ImageBase } from "@/lib/api";
 import SearchBar from "@/components/SearchBar";
 import ImageCard from "@/components/ImageCard";
 
-const CAT_EMOJI: Record<string, string> = {
-  "Technology": "💻", "Finance": "💰", "Social & Content": "📱",
-  "Learning": "📚", "Personal": "💬", "Maps & Places": "🗺️",
-  "Media & Entertainment": "🎬", "Other": "📁",
-};
+function getHour(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function HomePage() {
   const [status, setStatus] = useState<ProcessStatus | null>(null);
@@ -21,8 +23,8 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       api.getStatus().catch(() => null),
-      api.getCategories().catch(() => []),
-      api.getImages({ limit: 10, status: "classified" }).catch(() => []),
+      api.getCategories().catch(() => [] as CategoryInfo[]),
+      api.getImages({ limit: 8, status: "classified" }).catch(() => [] as ImageBase[]),
     ]).then(([s, c, r]) => {
       setStatus(s);
       setCategories(c);
@@ -31,88 +33,160 @@ export default function HomePage() {
     });
   }, []);
 
-  const topCats = categories.filter((c) => c.count > 0).slice(0, 8);
+  const topCats = categories.filter(c => c.count > 0);
 
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <div className="mb-6">
-          <span className="text-7xl">📸</span>
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-zinc-100 mb-3">
-          Your Screenshot Library
-        </h1>
-        <p className="text-zinc-500 text-lg mb-10 max-w-lg">
-          Search thousands of screenshots instantly. Auto-organised by topic,
-          powered by OCR and semantic AI.
+    <div className="page-content" style={{ maxWidth: 900 }}>
+      {/* Greeting */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 4, fontFamily: "monospace" }}>
+          {getHour()}
         </p>
-        <SearchBar autoFocus />
-      </section>
+        <h1 style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+          Your archive is ready.
+        </h1>
+      </div>
 
-      {/* Stats bar */}
+      {/* Search — primary action */}
+      <div style={{ marginBottom: 36 }}>
+        <SearchBar autoFocus />
+      </div>
+
+      {/* Stats strip */}
       {status && (
-        <section className="max-w-5xl mx-auto px-6 pb-12">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { label: "Total Screenshots", value: status.total.toLocaleString() },
-              { label: "Processed", value: status.done.toLocaleString() },
-              { label: "Pending", value: status.remaining.toLocaleString() },
-              { label: "Categories", value: categories.length.toString() },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center"
+        <div
+          style={{
+            display: "flex",
+            gap: 24,
+            marginBottom: 36,
+            padding: "12px 16px",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+          }}
+        >
+          {[
+            { label: "Total",      value: status.total.toLocaleString() },
+            { label: "Indexed",    value: status.done.toLocaleString() },
+            { label: "Pending",    value: status.remaining.toLocaleString() },
+            { label: "Categories", value: categories.length.toString() },
+          ].map(stat => (
+            <div key={stat.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span
+                className="font-mono"
+                style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}
               >
-                <p className="text-2xl font-bold text-indigo-400">{stat.value}</p>
-                <p className="text-xs text-zinc-500 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-          {status.running && (
-            <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-indigo-900/30 border border-indigo-800 text-indigo-300 text-sm">
-              <span className="animate-spin">⚙️</span>
-              <span>
-                Pipeline running — Stage: <strong>{status.current_stage}</strong>
-                {" "}({status.done}/{status.total})
+                {stat.value}
               </span>
+              <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{stat.label}</span>
+            </div>
+          ))}
+
+          {status.running && (
+            <div
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "var(--accent-hover)",
+              }}
+            >
+              <div
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "var(--accent)",
+                  animation: "pulse 2s infinite",
+                }}
+              />
+              {status.current_stage} running…
             </div>
           )}
-        </section>
+        </div>
       )}
 
-      {/* Category grid */}
+      {/* Categories */}
       {topCats.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 pb-12">
-          <h2 className="text-lg font-semibold text-zinc-300 mb-4">Browse by Category</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {topCats.map((cat) => (
+        <section style={{ marginBottom: 36 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <Layers size={14} color="var(--text-faint)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Categories
+              </span>
+            </div>
+            <Link
+              href="/library"
+              style={{ fontSize: 12, color: "var(--accent-hover)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+            >
+              View all <ArrowRight size={12} />
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: 8,
+            }}
+          >
+            {topCats.map(cat => (
               <Link
                 key={cat.name}
                 href={`/library?category=${encodeURIComponent(cat.name)}`}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900 hover:border-indigo-600 hover:bg-zinc-800 p-4 transition-all group"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                  transition: "border-color 150ms ease, background 150ms ease",
+                  gap: 8,
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)";
+                  (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                  (e.currentTarget as HTMLElement).style.background = "var(--bg-surface)";
+                }}
               >
-                <span className="text-3xl">{CAT_EMOJI[cat.name] ?? "📁"}</span>
-                <p className="text-sm font-medium text-zinc-200 mt-2">{cat.name}</p>
-                <p className="text-xs text-zinc-500 mt-0.5">{cat.count} screenshots</p>
+                <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 450, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {cat.name}
+                </span>
+                <span className="font-mono" style={{ fontSize: 11, color: "var(--text-faint)", flexShrink: 0 }}>
+                  {cat.count.toLocaleString()}
+                </span>
               </Link>
             ))}
           </div>
         </section>
       )}
 
-      {/* Recent screenshots */}
-      {recent.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 pb-16">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-zinc-300">Recently Processed</h2>
-            <Link href="/library" className="text-sm text-indigo-400 hover:text-indigo-300">
-              View all →
+      {/* Recent */}
+      {!loading && recent.length > 0 && (
+        <section>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Recently Processed
+            </span>
+            <Link
+              href="/library"
+              style={{ fontSize: 12, color: "var(--accent-hover)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+            >
+              View all <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {recent.map((img) => (
-              <div key={img.id} className="shrink-0 w-48">
+          <div className="recent-strip">
+            {recent.map(img => (
+              <div key={img.id} style={{ width: 160, flexShrink: 0 }}>
                 <ImageCard image={img} />
               </div>
             ))}
@@ -121,22 +195,37 @@ export default function HomePage() {
       )}
 
       {/* Empty state */}
-      {!loading && status?.total === 0 && (
-        <section className="max-w-lg mx-auto px-6 pb-24 text-center">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
-            <span className="text-5xl">🚀</span>
-            <h2 className="text-xl font-semibold text-zinc-200 mt-4 mb-2">
-              No screenshots yet
-            </h2>
-            <p className="text-zinc-500 text-sm mb-4">
-              Run the pipeline to ingest and index your screenshot folder.
-            </p>
-            <code className="block bg-zinc-950 text-indigo-400 text-xs p-3 rounded-xl text-left">
-              python -m backend.run_pipeline process-all<br />
-              --source "C:\path\to\screenshots"
-            </code>
-          </div>
-        </section>
+      {!loading && (!status || status.total === 0) && (
+        <div
+          style={{
+            padding: 32,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontSize: 15, color: "var(--text-muted)", fontWeight: 500, marginBottom: 8 }}>
+            No screenshots indexed yet
+          </p>
+          <p style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 16 }}>
+            Run the pipeline to ingest your screenshot folder.
+          </p>
+          <code
+            style={{
+              display: "block",
+              background: "var(--bg-elevated)",
+              color: "var(--accent-hover)",
+              fontSize: 12,
+              padding: "12px 16px",
+              borderRadius: 8,
+              textAlign: "left",
+              fontFamily: "monospace",
+            }}
+          >
+            python -m backend.run_pipeline process-all --source &quot;C:\path\to\screenshots&quot;
+          </code>
+        </div>
       )}
     </div>
   );

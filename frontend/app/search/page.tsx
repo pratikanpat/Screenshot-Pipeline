@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { AlertCircle, Clock } from "lucide-react";
 import { api, type SearchResult } from "@/lib/api";
-import SearchBar from "@/components/SearchBar";
+import SearchBar, { type SearchMode } from "@/components/SearchBar";
 import ImageGrid from "@/components/ImageGrid";
-
-type Mode = "keyword" | "semantic" | "hybrid";
 
 function SearchPageInner() {
   const searchParams = useSearchParams();
@@ -18,14 +17,14 @@ function SearchPageInner() {
   const [error, setError] = useState<string | null>(null);
 
   const q = searchParams.get("q") ?? "";
-  const mode = (searchParams.get("mode") ?? "keyword") as Mode;
+  const mode = (searchParams.get("mode") ?? "keyword") as SearchMode;
 
-  const doSearch = useCallback(async (query: string, searchMode: Mode) => {
+  const doSearch = useCallback(async (query: string, searchMode: SearchMode) => {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.search(query, searchMode, 40);
+      const res = await api.search(query, searchMode, 60);
       setResults(res.results);
       setTimeMs(res.time_ms);
     } catch (err: unknown) {
@@ -41,32 +40,47 @@ function SearchPageInner() {
     else { setResults([]); setTimeMs(null); }
   }, [q, mode, doSearch]);
 
-  const handleSearch = (newQ: string, newMode: Mode) => {
+  const handleSearch = (newQ: string, newMode: SearchMode) =>
     router.push(`/search?q=${encodeURIComponent(newQ)}&mode=${newMode}`);
-  };
 
-  // Build snippet map for ImageGrid
   const snippets: Record<number, string> = {};
   for (const r of results) snippets[r.image_id] = r.snippet;
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="page-content" style={{ maxWidth: 1200 }}>
       {/* Search bar */}
-      <SearchBar defaultQuery={q} defaultMode={mode} onSearch={handleSearch} />
+      <div style={{ marginBottom: 24, maxWidth: 640 }}>
+        <SearchBar defaultQuery={q} defaultMode={mode} onSearch={handleSearch} autoFocus={!q} />
+      </div>
 
       {/* Result meta */}
       {q && !loading && (
-        <div className="flex items-center gap-3 text-sm text-zinc-500">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 20,
+            fontSize: 13,
+          }}
+        >
           {error ? (
-            <span className="text-red-400">⚠ {error}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--danger)" }}>
+              <AlertCircle size={14} />
+              <span>{error}</span>
+            </div>
           ) : (
             <>
-              <span>
-                <strong className="text-zinc-300">{results.length}</strong> results
-                for "<span className="text-indigo-400">{q}</span>"
+              <span style={{ color: "var(--text-muted)" }}>
+                <strong style={{ color: "var(--text-primary)" }}>{results.length}</strong>
+                {" "}results for{" "}
+                <strong style={{ color: "var(--accent-hover)" }}>&ldquo;{q}&rdquo;</strong>
               </span>
               {timeMs !== null && (
-                <span className="text-zinc-700">· {timeMs.toFixed(0)}ms</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-faint)", fontSize: 12 }}>
+                  <Clock size={11} />
+                  {timeMs.toFixed(0)}ms
+                </span>
               )}
             </>
           )}
@@ -78,12 +92,23 @@ function SearchPageInner() {
         images={results}
         loading={loading}
         snippets={snippets}
+        emptyMessage={q ? `No results for "${q}"` : "Start by searching above"}
+        emptyHint={q ? "Try a shorter term, different spelling, or browse the library" : "Type a word, phrase, or topic"}
       />
 
-      {/* Empty hint */}
-      {!q && (
-        <div className="text-center py-16 text-zinc-600">
-          Type a keyword above to search your screenshots
+      {/* Idle hint */}
+      {!q && !loading && (
+        <div
+          style={{
+            textAlign: "center",
+            paddingTop: 80,
+            color: "var(--text-faint)",
+            fontSize: 13,
+          }}
+        >
+          Search across {" "}
+          <span style={{ color: "var(--text-muted)" }}>8,615 indexed screenshots</span>
+          {" "} using OCR text
         </div>
       )}
     </div>

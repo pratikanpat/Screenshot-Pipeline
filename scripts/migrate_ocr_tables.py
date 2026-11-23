@@ -75,3 +75,4 @@ print(f"Images pending OCR: {pending:,}")
 
 conn.close()
 print("\nocr_results migration complete. Run the pipeline again.")
+
