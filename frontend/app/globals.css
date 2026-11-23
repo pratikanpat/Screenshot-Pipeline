@@ -1,38 +1,83 @@
 @import "tailwindcss";
 
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
-:root {
-  /* Surfaces */
-  --bg-base:     #0d0d0f;
-  --bg-surface:  #17171a;
-  --bg-elevated: #1f1f23;
+/* ════════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — 60 / 30 / 10 colour rule
+   ────────────────────────────────────────────────────────────────────────────
+   60%  Canvas + Surface  → backgrounds, page, sidebar, cards
+   30%  Text + Border     → content, structure, dividers
+   10%  Accent            → ONE primary action per screen, active state, links
+   ════════════════════════════════════════════════════════════════════════════ */
 
-  /* Borders */
-  --border:        #2a2a30;
-  --border-strong: #3a3a42;
+/* ── Dark theme (default) ───────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  /* 60% — dominant backgrounds */
+  --bg-base:     #191917;   /* Canvas   — page background */
+  --bg-surface:  #22221F;   /* Surface  — sidebar, card background */
+  --bg-elevated: #292824;   /* Elevated — input, hover overlay, panel */
 
-  /* Text */
-  --text-primary: #ededef;
-  --text-muted:   #6b6b78;
-  --text-faint:   #3d3d47;
+  /* 30% — text hierarchy + borders */
+  --text-primary: #EEEAE2;  /* H1, body, label */
+  --text-muted:   #AAA397;  /* secondary labels, metadata */
+  --text-faint:   #5A5750;  /* placeholder, disabled, timestamps */
+  --border:       #39362F;  /* all 1px separators */
+  --border-strong:#4E4A42;  /* focused/active border */
 
-  /* Accent — indigo */
-  --accent:      #6366f1;
-  --accent-soft: #1e1d35;
-  --accent-hover:#818cf8;
+  /* 10% — accent (terracotta, warm) — use SPARINGLY */
+  --accent:       #D58A6D;  /* primary button, active nav pill, selected chip */
+  --accent-soft:  #3A2A24;  /* accent background (badge, chip bg) */
+  --accent-hover: #E8A48C;  /* hover on accent elements */
+  --accent-text:  #1A1210;  /* text ON accent button */
 
-  /* Status */
-  --success: #22c55e;
-  --danger:  #ef4444;
-
-  /* Sidebar width */
-  --sidebar-w: 240px;
+  /* Status — semantic only, not decorative */
+  --success:      #8EAD88;
+  --success-soft: #1E2E1D;
+  --danger:       #C97070;
+  --danger-soft:  #2E1D1D;
 }
 
-/* ─── Reset & base ───────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
+/* ── Light theme ────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* 60% — dominant backgrounds */
+  --bg-base:     #F3F0E9;   /* Canvas   — page background */
+  --bg-surface:  #FBFAF7;   /* Surface  — sidebar, card background */
+  --bg-elevated: #FFFFFF;   /* Elevated — input, panel */
 
-html { height: 100%; }
+  /* 30% — text + borders */
+  --text-primary: #24231F;  /* H1, body, label */
+  --text-muted:   #77736B;  /* secondary labels */
+  --text-faint:   #B0AAA0;  /* placeholder, timestamps */
+  --border:       #E4DED3;  /* all 1px separators */
+  --border-strong:#C8C1B6;  /* focused/active border */
+
+  /* 10% — accent (terracotta) */
+  --accent:       #B65F43;  /* primary button, active nav, selected chip */
+  --accent-soft:  #F1E3DA;  /* accent backgrounds */
+  --accent-hover: #9E5039;  /* hover on accent elements */
+  --accent-text:  #FFFFFF;  /* text ON accent button */
+
+  /* Status */
+  --success:      #55765C;
+  --success-soft: #DFF0E0;
+  --danger:       #A04040;
+  --danger-soft:  #F5E0E0;
+}
+
+/* ── Sidebar width ──────────────────────────────────────────────────────── */
+:root { --sidebar-w: 240px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESET & BASE
+   ════════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  height: 100%;
+  /* Apply theme transition ONLY after first load — avoids flash */
+  &.theme-ready * {
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+  }
+}
 
 body {
   min-height: 100%;
@@ -45,33 +90,36 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track    { background: transparent; }
 ::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-/* ─── Selection ──────────────────────────────────────────────────────────── */
-::selection { background: var(--accent); color: #fff; }
+/* ── Selection ──────────────────────────────────────────────────────────── */
+::selection { background: var(--accent); color: var(--accent-text); }
 
-/* ─── FTS snippet highlights ─────────────────────────────────────────────── */
+/* ── FTS snippet highlights ─────────────────────────────────────────────── */
 .snippet-text b {
   color: var(--accent-hover);
   font-weight: 600;
   font-style: normal;
 }
 
-/* ─── Mono metadata ──────────────────────────────────────────────────────── */
+/* ── Monospace metadata ─────────────────────────────────────────────────── */
 .font-mono {
-  font-family: "JetBrains Mono", "IBM Plex Mono", "Fira Code", ui-monospace, monospace;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
 }
 
-/* ─── App layout ─────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   APP LAYOUT
+   ════════════════════════════════════════════════════════════════════════════ */
 .app-shell {
   display: flex;
   min-height: 100vh;
 }
 
+/* 30% surface — sidebar is secondary chrome, NOT primary focus */
 .app-sidebar {
   position: fixed;
   top: 0;
@@ -86,61 +134,72 @@ body {
   overflow-y: auto;
 }
 
+/* 60% canvas — main content gets the most visual weight */
 .app-main {
   margin-left: var(--sidebar-w);
   flex: 1;
   min-width: 0;
 }
 
-/* ─── Sidebar nav items ──────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   NAVIGATION — sidebar items
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Default: text-muted, no background (stays invisible in 30% zone) */
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
   font-size: 13.5px;
   font-weight: 450;
   color: var(--text-muted);
-  transition: background 150ms ease, color 150ms ease;
   cursor: pointer;
   text-decoration: none;
   border: none;
   background: none;
   width: 100%;
   text-align: left;
+  line-height: 1.3;
 }
 .nav-item:hover {
   background: var(--bg-elevated);
   color: var(--text-primary);
 }
+/* Active: 10% accent zone — accent-soft bg + accent-coloured icon */
 .nav-item.active {
   background: var(--accent-soft);
   color: var(--accent-hover);
   font-weight: 500;
 }
-.nav-item.active svg {
-  color: var(--accent);
-}
+.nav-item.active svg { color: var(--accent); }
 
-/* ─── Section label ──────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY HELPERS
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* 30% zone — section labels are tertiary text, not competing with content */
 .section-label {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
-  padding: 0 12px;
+  padding: 0;
   margin: 0;
 }
 
-/* ─── Buttons ────────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -148,50 +207,75 @@ body {
   border: 1px solid transparent;
   text-decoration: none;
   line-height: 1;
+  font-family: inherit;
 }
+
+/* 10% accent — the ONE primary action colour per screen */
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* Ghost — 30% zone, doesn't compete */
 .btn-ghost {
   background: transparent;
   color: var(--text-muted);
   border-color: var(--border);
 }
-.btn-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-strong); }
+.btn-ghost:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
 .btn-icon {
-  padding: 7px;
-  border-radius: 7px;
+  padding: 6px;
+  border-radius: 6px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-family: inherit;
 }
-.btn-icon:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.btn-icon:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
 
-/* ─── Filter chip ────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   FILTER CHIPS
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 11px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 5px;
   font-size: 12.5px;
   font-weight: 450;
+  /* Default — 30% zone, blends into surface */
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 150ms ease;
   white-space: nowrap;
+  font-family: inherit;
+  line-height: 1.4;
 }
-.chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+/* Active chip — 10% accent zone */
 .chip.active {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -199,44 +283,54 @@ body {
   font-weight: 500;
 }
 
-/* ─── Search input ───────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   SEARCH INPUT
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .search-input {
   width: 100%;
-  height: 48px;
-  padding: 0 48px 0 44px;
+  height: 46px;
+  padding: 0 46px 0 42px;
+  /* 30% zone — surface background, blends but accessible */
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 9px;
   color: var(--text-primary);
   font-size: 15px;
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
   font-family: inherit;
 }
 .search-input::placeholder { color: var(--text-faint); }
 .search-input:focus {
   border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  /* Subtle accent glow — 10% zone, only on focus */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
-/* ─── Image card ─────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   IMAGE CARDS — 60% zone (the content IS the product)
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .img-card {
   display: block;
-  border-radius: 10px;
+  border-radius: 9px;
   overflow: hidden;
+  /* 30% surface border — present but not shouting */
   border: 1px solid var(--border);
   background: var(--bg-surface);
   text-decoration: none;
-  transition: border-color 150ms ease, transform 150ms ease;
   cursor: pointer;
 }
 .img-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-1px);
+  /* Lift without accent color — card itself is the focus */
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--text-primary) 5%, transparent);
 }
+
+/* Image area — elevated bg keeps the screenshot readable on any bg */
 .img-card-thumb {
   width: 100%;
-  height: 180px;
+  height: 175px;
   background: var(--bg-elevated);
   display: flex;
   align-items: center;
@@ -246,100 +340,138 @@ body {
 .img-card-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: contain;  /* NEVER crop screenshots */
 }
+
 .img-card-meta {
-  padding: 10px 12px;
+  padding: 9px 11px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
 }
 
-/* ─── Category badge ─────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   CATEGORY BADGE — 10% accent, tiny surface area
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .cat-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   background: var(--accent-soft);
-  color: var(--accent-hover);
+  color: var(--accent);
   width: fit-content;
+  letter-spacing: 0.01em;
 }
 
-/* ─── Skeleton ───────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   SKELETON LOADING
+   ════════════════════════════════════════════════════════════════════════════ */
+
 @keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-surface) 50%, var(--bg-elevated) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s ease infinite;
-  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    var(--bg-surface) 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: 5px;
 }
 
-/* ─── Metadata row ───────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   METADATA ROWS — purely 30% zone
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .meta-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   font-size: 12px;
   gap: 8px;
+  padding: 3px 0;
+}
+.meta-row + .meta-row {
+  border-top: 1px solid var(--border);
 }
 .meta-row .meta-key   { color: var(--text-faint); flex-shrink: 0; }
-.meta-row .meta-value { color: var(--text-muted); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta-row .meta-value {
+  color: var(--text-muted);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+}
 
-/* ─── Empty state ────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 64px 24px;
+  padding: 72px 24px;
   text-align: center;
-  gap: 8px;
+  gap: 6px;
 }
-.empty-state svg { color: var(--text-faint); margin-bottom: 8px; }
+.empty-state svg      { color: var(--border-strong); margin-bottom: 10px; }
 .empty-state .empty-title { font-size: 15px; color: var(--text-muted); font-weight: 500; }
 .empty-state .empty-sub   { font-size: 13px; color: var(--text-faint); }
 
-/* ─── Status dot ─────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   STATUS DOT
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .status-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
 }
-.status-dot.green { background: var(--success); box-shadow: 0 0 0 2px rgba(34,197,94,0.2); }
-
-/* ─── Top bar ────────────────────────────────────────────────────────────── */
-.top-bar {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  padding: 0 32px;
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
+.status-dot.green {
+  background: var(--success);
+  box-shadow: 0 0 0 2px var(--success-soft);
 }
 
-/* ─── Page content wrapper ───────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   PAGE WRAPPER
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .page-content {
   padding: 32px;
-  max-width: 1200px;
 }
 
-/* ─── Responsive grid ────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   IMAGE GRID — responsive, no masonry (predictable layout)
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .img-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(2, 1fr);
 }
 @media (min-width: 640px)  { .img-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1024px) { .img-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1280px) { .img-grid { grid-template-columns: repeat(5, 1fr); } }
 
-/* ─── Recent strip ───────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   RECENT STRIP
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .recent-strip {
   display: flex;
   gap: 10px;
@@ -348,31 +480,53 @@ body {
 }
 .recent-strip::-webkit-scrollbar { height: 3px; }
 
-/* ─── Detail page two-col ────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   DETAIL PAGE
+   ════════════════════════════════════════════════════════════════════════════ */
+
 .detail-layout {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: flex-start;
 }
 .detail-image-col  { flex: 1; min-width: 0; }
-.detail-meta-col   { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+.detail-meta-col   { width: 310px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
 
 @media (max-width: 1024px) {
   .detail-layout { flex-direction: column; }
   .detail-meta-col { width: 100%; }
 }
 
-/* ─── Panel (card wrapper) ───────────────────────────────────────────────── */
+/* Panel — 30% surface zone */
 .panel {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: 9px;
+  padding: 14px;
 }
 
-/* ─── Divider ────────────────────────────────────────────────────────────── */
-hr.divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0;
+/* ════════════════════════════════════════════════════════════════════════════
+   THEME TOGGLE BUTTON
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 450;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.theme-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
 }
