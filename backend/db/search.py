@@ -224,16 +224,17 @@ def get_images_paginated(
 
 
 def get_library_stats(conn: sqlite3.Connection) -> dict:
-    total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+    # Use named aliases so dict_row_factory (which keys by column name) works.
+    total = conn.execute("SELECT COUNT(*) AS n FROM images").fetchone()["n"]
     processed = conn.execute(
-        "SELECT COUNT(*) FROM images WHERE status = 'classified'"
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS n FROM images WHERE status = 'classified'"
+    ).fetchone()["n"]
     pending = conn.execute(
-        "SELECT COUNT(*) FROM images WHERE status = 'pending'"
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS n FROM images WHERE status = 'pending'"
+    ).fetchone()["n"]
     failed = conn.execute(
-        "SELECT COUNT(*) FROM images WHERE status LIKE '%failed%'"
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS n FROM images WHERE status LIKE '%failed%'"
+    ).fetchone()["n"]
 
     return {
         "total": total,
