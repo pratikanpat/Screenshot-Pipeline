@@ -71,6 +71,9 @@
    ════════════════════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Lucide / inline SVG safety — never let an icon escape its container */
+svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+
 html {
   height: 100%;
   /* Apply theme transition ONLY after first load — avoids flash */
