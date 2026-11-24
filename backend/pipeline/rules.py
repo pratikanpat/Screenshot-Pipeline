@@ -34,123 +34,267 @@ class RuleMatch(TypedDict):
 # ─────────────────────────────────────────────────────────────────────────────
 
 _RULES: list[tuple[tuple[str, ...], str, str, str]] = [
-    # ── Finance ──────────────────────────────────────────────────────────────
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # FINANCE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── Payment Apps (must come BEFORE generic UPI rule) ─────────────────────
     (
-        ("invoice", "receipt", "subtotal", "grand total", "gst", "vat",
-         "bill no", "bill number", "tax invoice"),
-        "Finance", "Receipts & Invoices", "receipt",
+        ("phonepe", "phone pe"),
+        "Finance", "Payment Apps", "transaction",
     ),
     (
-        ("upi", "paytm", "gpay", "phonepe", "neft", "imps", "rtgs",
-         "transferred to", "debited", "credited", "transaction id",
-         "txn id", "payment successful", "payment failed"),
+        ("google pay", "gpay", "g pay"),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("paytm",),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("mobikwik", "mobiquik", "mobiqwik"),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("bhim upi", "bhim app"),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("razorpay",),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("paypal",),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("freecharge", "free charge"),
+        "Finance", "Payment Apps", "transaction",
+    ),
+    (
+        ("amazon pay",),
+        "Finance", "Payment Apps", "transaction",
+    ),
+
+    # ── UPI / Generic Digital Payments ────────────────────────────────────────
+    (
+        ("upi", "neft", "imps", "rtgs",
+         "transferred to", "debited from", "credited to",
+         "transaction id", "txn id", "ref no", "reference number",
+         "payment successful", "payment failed", "payment done",
+         "paid successfully", "transfer successful", "money sent",
+         "money received", "amount debited", "amount credited",
+         "rs.", "₹", "inr"),
         "Finance", "UPI Transactions", "transaction",
     ),
+
+    # ── Receipts & Invoices ───────────────────────────────────────────────────
+    (
+        ("invoice", "tax invoice", "gst invoice",
+         "receipt", "payment receipt",
+         "subtotal", "grand total", "total amount", "amount due",
+         "gst", "cgst", "sgst", "igst", "vat",
+         "bill no", "bill number", "bill date",
+         "order id", "order no", "booking id",
+         "gstin", "pan no", "hsn code"),
+        "Finance", "Receipts & Invoices", "receipt",
+    ),
+
+    # ── Bank Statements ────────────────────────────────────────────────────────
     (
         ("account balance", "account statement", "bank statement",
-         "closing balance", "opening balance", "ifsc", "micr"),
+         "closing balance", "opening balance", "available balance",
+         "ifsc", "micr", "account number", "savings account",
+         "current account", "passbook"),
         "Finance", "Bank Statements", "document",
     ),
+
+    # ── Shopping / E-commerce ─────────────────────────────────────────────────
     (
-        ("budget", "expense", "income", "savings", "spent", "salary",
-         "emi", "loan", "insurance premium"),
-        "Finance", "Budgets", "document",
-    ),
-    (
-        ("price", "offer", "sale", "discount", "% off", "buy now",
-         "add to cart", "add to bag", "order placed", "order confirmed",
-         "delivery by", "flipkart", "amazon", "meesho", "myntra"),
+        ("order placed", "order confirmed", "order shipped", "out for delivery",
+         "delivery by", "estimated delivery", "track order",
+         "add to cart", "add to bag", "buy now", "place order",
+         "flipkart", "amazon.in", "meesho", "myntra", "ajio",
+         "nykaa", "snapdeal", "blinkit", "swiggy instamart", "zepto",
+         "bigbasket", "jiomart"),
         "Finance", "Shopping", "receipt",
     ),
 
-    # ── Technology ───────────────────────────────────────────────────────────
+    # ── Budget / Personal Finance ──────────────────────────────────────────────
+    (
+        ("budget", "expense", "income", "savings", "spent", "salary",
+         "emi", "loan", "insurance premium", "mutual fund", "sip",
+         "investment", "portfolio", "net worth"),
+        "Finance", "Budgets", "document",
+    ),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SOCIAL MEDIA — ordered from most-specific to least-specific
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── Instagram DMs / Chats (most specific — before generic Instagram) ──────
+    (
+        ("instagram", "direct", "message request",
+         "you sent", "seen", "active now", "voice message",
+         "react to message", "reply", "unsend"),
+        "Social & Content", "Instagram Chats", "chat",
+    ),
+
+    # ── Instagram Posts / Feed ────────────────────────────────────────────────
+    (
+        ("instagram", "like", "comment", "share", "save",
+         "explore", "reels", "tagged"),
+        "Social & Content", "Instagram Posts", "post",
+    ),
+
+    # ── Instagram Stories / Reels ─────────────────────────────────────────────
+    (
+        ("instagram", "story", "reel", "add to story", "close friends",
+         "swipe up", "15s", "30s"),
+        "Social & Content", "Instagram Stories & Reels", "post",
+    ),
+
+    # ── Generic Instagram (catch-all) ─────────────────────────────────────────
+    (
+        ("instagram", "followers", "following", "ig ", "@instagram"),
+        "Social & Content", "Instagram", "post",
+    ),
+
+    # ── WhatsApp ──────────────────────────────────────────────────────────────
+    (
+        ("whatsapp", "wa.me", "whatsapp business",
+         "typing...", "recording...", "end-to-end encrypted"),
+        "Personal", "WhatsApp Chats", "chat",
+    ),
+
+    # ── Telegram ──────────────────────────────────────────────────────────────
+    (
+        ("telegram", "t.me", "telegram group", "telegram channel",
+         "forwarded from"),
+        "Personal", "Telegram Chats", "chat",
+    ),
+
+    # ── Twitter / X ───────────────────────────────────────────────────────────
+    (
+        ("twitter", "tweet", "retweet", "x.com",
+         "quote tweet", "thread", "trending", "spaces",
+         "bookmarks", "for you", "following feed"),
+        "Social & Content", "Twitter/X Posts", "post",
+    ),
+
+    # ── LinkedIn Posts ────────────────────────────────────────────────────────
+    (
+        ("linkedin", "connections", "1st •", "2nd •", "3rd •",
+         "open to work", "hiring", "endorse", "recommendation",
+         "linkedin premium", "linkedin learning"),
+        "Social & Content", "LinkedIn Posts", "post",
+    ),
+
+    # ── YouTube ───────────────────────────────────────────────────────────────
+    (
+        ("youtube", "subscribe", "subscribers", "views", "watch later",
+         "youtube premium", "youtube shorts", "live stream",
+         "notification bell"),
+        "Social & Content", "YouTube", "post",
+    ),
+
+    # ── Reddit ────────────────────────────────────────────────────────────────
+    (
+        ("reddit", "r/", "subreddit", "upvote", "downvote",
+         "karma", "op said", "posted by u/"),
+        "Social & Content", "Reddit", "post",
+    ),
+
+    # ── Snapchat ──────────────────────────────────────────────────────────────
+    (
+        ("snapchat", "snap", "streak", "bitmoji", "my eyes only"),
+        "Social & Content", "Snapchat", "post",
+    ),
+
+    # ── Facebook ──────────────────────────────────────────────────────────────
+    (
+        ("facebook", "fb", "marketplace", "news feed", "facebook group",
+         "messenger"),
+        "Social & Content", "Facebook", "post",
+    ),
+
+    # ── Quotes / Motivation ───────────────────────────────────────────────────
+    (
+        ("inspiration", "motivation", "believe in yourself",
+         "success is", "never give up", "dream big"),
+        "Social & Content", "Quotes & Inspiration", "quote",
+    ),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TECHNOLOGY
+    # ══════════════════════════════════════════════════════════════════════════
+
     (
         ("def ", "import ", "class ", "return ", "function(",
          "const ", "let ", "var ", "async ", "await ",
          "print(", "console.log", "traceback", "exception",
-         "stack overflow", "github.com", "gitlab", "bitbucket"),
+         "stack overflow", "github.com", "gitlab", "bitbucket",
+         "stackoverflow", "#include", "public static void",
+         "<!doctype", "<html", "SELECT ", "INSERT INTO"),
         "Technology", "Code & Development", "code",
     ),
     (
         ("pull request", "merge request", "git commit", "git push",
          "git clone", "npm install", "pip install", "docker", "kubernetes",
-         "deployment", "ci/cd", "workflow", "action failed", "build passed"),
+         "deployment", "ci/cd", "github actions", "build failed",
+         "build passed", "pipeline", "devops"),
         "Technology", "Code & Development", "code",
     ),
     (
         ("gpt", "chatgpt", "gemini", "claude", "llm", "large language model",
          "machine learning", "deep learning", "neural network", "ai model",
          "hugging face", "openai", "anthropic", "stable diffusion",
-         "midjourney", "dall-e"),
+         "midjourney", "dall-e", "copilot", "cursor", "perplexity"),
         "Technology", "AI & Machine Learning", "article",
     ),
     (
         ("hacktoberfest", "open source", "open-source", "contributor",
-         "maintainer", "pull request", "issue tracker", "fork"),
+         "maintainer", "issue tracker", "fork", "star this repo"),
         "Technology", "Open Source", "post",
     ),
     (
         ("tutorial", "how to", "step by step", "beginner guide",
-         "getting started", "cheatsheet", "cheat sheet"),
+         "getting started", "cheatsheet", "cheat sheet", "roadmap",
+         "learn", "explained"),
         "Technology", "Tutorials", "article",
     ),
 
-    # ── Social & Content ─────────────────────────────────────────────────────
-    (
-        ("linkedin", "connections", "1st", "2nd", "3rd",
-         "follow", "connect", "endorse"),
-        "Social & Content", "LinkedIn", "post",
-    ),
-    (
-        ("twitter", "tweet", "retweet", "x.com", "trending", "#",
-         "quote tweet", "thread"),
-        "Social & Content", "Twitter/X", "post",
-    ),
-    (
-        ("instagram", "reel", "story", "explore", "dm", "direct message",
-         "followers", "following", "likes"),
-        "Social & Content", "Instagram", "post",
-    ),
-    (
-        ("youtube", "subscribe", "subscribers", "views", "watch later",
-         "playlist", "channel"),
-        "Social & Content", "YouTube", "post",
-    ),
-    (
-        ('"', "— ", "said:", "quote:", "inspiration", "motivation",
-         "believe in", "success is"),
-        "Social & Content", "Quotes & Inspiration", "quote",
-    ),
+    # ══════════════════════════════════════════════════════════════════════════
+    # LEARNING
+    # ══════════════════════════════════════════════════════════════════════════
 
-    # ── Learning ─────────────────────────────────────────────────────────────
     (
         ("udemy", "coursera", "edx", "skillshare", "pluralsight",
-         "lesson", "module", "chapter", "quiz", "assignment",
-         "certificate", "enroll"),
+         "linkedin learning", "lesson", "module", "quiz", "assignment",
+         "certificate", "enroll", "complete the course"),
         "Learning", "Courses", "article",
     ),
     (
         ("medium.com", "substack", "newsletter", "blog post",
-         "read more", "min read", "published in"),
+         "read more", "min read", "published in", "hashnode", "dev.to"),
         "Learning", "Articles & Blogs", "article",
     ),
     (
         ("note:", "notes:", "summary:", "key points", "takeaway",
-         "remember:", "todo:", "to do:"),
+         "remember:", "todo:", "to do:", "action items"),
         "Learning", "Notes", "note",
     ),
     (
-        ("book", "chapter", "author", "isbn", "kindle", "goodreads",
-         "highlights", "page ", "paperback"),
+        ("book", "isbn", "kindle", "goodreads",
+         "highlights", "paperback", "epub", "pdf book"),
         "Learning", "Books & Reading", "document",
     ),
 
-    # ── Personal ─────────────────────────────────────────────────────────────
-    (
-        ("whatsapp", "telegram", "typing...", "delivered", "read",
-         "yesterday", "online", "last seen", "message", "chat"),
-        "Personal", "Chats & Messages", "chat",
-    ),
+    # ══════════════════════════════════════════════════════════════════════════
+    # PERSONAL
+    # ══════════════════════════════════════════════════════════════════════════
+
     (
         ("reminder", "alarm", "set for", "don't forget", "follow up",
          "due date", "deadline", "meet", "meeting at"),
@@ -158,31 +302,92 @@ _RULES: list[tuple[tuple[str, ...], str, str, str]] = [
     ),
     (
         ("calendar", "event", "rsvp", "invite", "schedule",
-         "monday", "tuesday", "wednesday", "thursday", "friday"),
+         "monday", "tuesday", "wednesday", "thursday", "friday",
+         "saturday", "sunday", "google calendar", "outlook"),
         "Personal", "Calendar & Events", "calendar",
     ),
     (
-        ("contact", "phone number", "email:", "address:", "saved contact"),
+        ("contact", "phone number", "saved contact", "mobile no"),
         "Personal", "Contacts", "contact",
     ),
 
-    # ── Maps & Places ────────────────────────────────────────────────────────
+    # ── Generic Chat (catch-all after platform-specific ones) ─────────────────
     (
-        ("google maps", "directions", "navigate", "km away",
-         "min away", "eta", "turn left", "turn right", "route"),
-        "Maps & Places", "Navigation", "map",
+        ("typing...", "delivered", "read", "yesterday",
+         "online", "last seen", "message", "chat"),
+        "Personal", "Chats & Messages", "chat",
     ),
 
-    # ── Media & Entertainment ─────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # PEOPLE & FACES (keyword signals — CLIP will handle visual detection)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    (
+        ("selfie", "profile photo", "profile picture", "dp",
+         "display picture", "avatar", "photo of me"),
+        "People & Faces", "Profile Pictures", "photo",
+    ),
+    (
+        ("group photo", "group picture", "team photo",
+         "family photo", "wedding photo", "graduation photo",
+         "event photo", "party photo"),
+        "People & Faces", "Group Photos", "photo",
+    ),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MAPS & PLACES
+    # ══════════════════════════════════════════════════════════════════════════
+
+    (
+        ("google maps", "apple maps", "directions", "navigate",
+         "km away", "min away", "eta", "turn left", "turn right",
+         "route", "destination", "current location",
+         "uber", "ola", "rapido", "namma yatri"),
+        "Maps & Places", "Navigation", "map",
+    ),
+    (
+        ("zomato", "swiggy", "restaurant", "food delivery",
+         "order food", "near me", "rating", "reviews"),
+        "Maps & Places", "Food & Restaurants", "place",
+    ),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MEDIA & ENTERTAINMENT
+    # ══════════════════════════════════════════════════════════════════════════
+
     (
         ("netflix", "prime video", "disney+", "hotstar", "jiocinema",
-         "episode", "season", "watch now", "streaming"),
+         "episode", "season", "watch now", "streaming", "zee5",
+         "sonyliv", "mxplayer", "voot"),
         "Media & Entertainment", "Movies & Shows", "media",
     ),
     (
-        ("spotify", "apple music", "gaana", "jio saavn",
-         "now playing", "playlist", "album", "artist"),
+        ("spotify", "apple music", "gaana", "jio saavn", "wynk",
+         "now playing", "album", "artist", "song", "lyrics"),
         "Media & Entertainment", "Music", "media",
+    ),
+    (
+        ("game", "gaming", "player", "score", "level", "leaderboard",
+         "pubg", "bgmi", "free fire", "cod", "clash of clans",
+         "clash royale", "minecraft", "steam", "play store game"),
+        "Media & Entertainment", "Gaming", "media",
+    ),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEALTH & FITNESS
+    # ══════════════════════════════════════════════════════════════════════════
+
+    (
+        ("steps", "calories", "heart rate", "sleep", "workout",
+         "health", "fitness", "bmi", "weight",
+         "google fit", "apple health", "fitbit", "samsung health"),
+        "Health & Fitness", "Activity Tracking", "health",
+    ),
+    (
+        ("prescription", "medicine", "tablet", "dose", "doctor",
+         "hospital", "clinic", "appointment", "medical report",
+         "blood pressure", "sugar level", "hemoglobin"),
+        "Health & Fitness", "Medical", "document",
     ),
 ]
 

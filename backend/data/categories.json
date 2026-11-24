@@ -1,4 +1,39 @@
 {
+  "Finance": [
+    "Payment Apps",
+    "UPI Transactions",
+    "Receipts & Invoices",
+    "Bank Statements",
+    "Shopping",
+    "Budgets"
+  ],
+  "Social & Content": [
+    "Instagram Posts",
+    "Instagram Chats",
+    "Instagram Stories & Reels",
+    "Instagram",
+    "Twitter/X Posts",
+    "LinkedIn Posts",
+    "YouTube",
+    "Reddit",
+    "Snapchat",
+    "Facebook",
+    "WhatsApp Chats",
+    "Quotes & Inspiration"
+  ],
+  "Personal": [
+    "WhatsApp Chats",
+    "Telegram Chats",
+    "Chats & Messages",
+    "Reminders",
+    "Calendar & Events",
+    "Contacts"
+  ],
+  "People & Faces": [
+    "Portraits",
+    "Profile Pictures",
+    "Group Photos"
+  ],
   "Technology": [
     "Code & Development",
     "AI & Machine Learning",
@@ -6,39 +41,25 @@
     "Tools & Apps",
     "Tutorials"
   ],
-  "Finance": [
-    "Receipts & Invoices",
-    "Bank Statements",
-    "UPI Transactions",
-    "Budgets"
-  ],
-  "Social & Content": [
-    "LinkedIn",
-    "Twitter/X",
-    "Instagram",
-    "YouTube",
-    "Quotes & Inspiration"
-  ],
   "Learning": [
     "Articles & Blogs",
     "Notes",
     "Books & Reading",
     "Courses"
   ],
-  "Personal": [
-    "Chats & Messages",
-    "Reminders",
-    "Calendar & Events",
-    "Contacts"
-  ],
   "Maps & Places": [
     "Navigation",
+    "Food & Restaurants",
     "Locations"
   ],
   "Media & Entertainment": [
     "Movies & Shows",
     "Music",
     "Gaming"
+  ],
+  "Health & Fitness": [
+    "Activity Tracking",
+    "Medical"
   ],
   "Other": [
     "Uncategorized"

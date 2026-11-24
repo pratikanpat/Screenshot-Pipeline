@@ -57,58 +57,126 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 
 CLIP_CATEGORY_LABELS: list[str] = [
-    "receipt or invoice or payment",
-    "bank statement or financial document",
-    "upi or mobile payment transaction",
-    "computer code or programming",
-    "AI or machine learning content",
-    "open source or GitHub activity",
-    "technology tutorial or how-to guide",
-    "LinkedIn post or professional network",
-    "Twitter or X post or tweet",
-    "Instagram post or story or reel",
-    "YouTube video or channel",
-    "motivational quote or inspiration",
-    "online course or lesson",
-    "article or blog post or newsletter",
-    "personal notes or summary",
-    "book highlight or reading",
-    "WhatsApp or Telegram chat message",
-    "reminder or to-do or alarm",
-    "calendar event or schedule",
-    "map or navigation directions",
-    "movie or show or streaming",
-    "music or playlist or album",
-    "online shopping or product or order",
-    "other or uncategorized",
+    # Finance
+    "a PhonePe payment confirmation screen",
+    "a Google Pay or GPay payment confirmation",
+    "a Paytm transaction or wallet screen",
+    "a MobiKwik or digital wallet payment",
+    "a UPI payment or bank transfer transaction",
+    "a receipt, invoice, or bill with itemized amounts",
+    "a GST tax invoice or purchase receipt",
+    "a bank account statement or passbook",
+    "an e-commerce order confirmation from Flipkart Amazon Meesho",
+    "a personal finance budget or expense tracker",
+    # Social Media — Instagram
+    "an Instagram direct message chat conversation",
+    "an Instagram feed post with photo and caption",
+    "an Instagram story or reel video",
+    "an Instagram profile page with followers count",
+    # Social Media — Other platforms
+    "a Twitter or X post tweet or thread",
+    "a LinkedIn professional post or job update",
+    "a WhatsApp chat conversation or group message",
+    "a Telegram chat or channel message",
+    "a YouTube video page or channel",
+    "a Reddit post or comment thread",
+    "a Facebook post or news feed",
+    "a Snapchat snap or story",
+    "a motivational or inspirational quote",
+    # Technology
+    "a computer code editor or programming terminal",
+    "an AI chatbot conversation like ChatGPT Gemini Claude",
+    "a GitHub repository or pull request",
+    "a technology tutorial or how-to article",
+    # Learning
+    "an online course lesson from Udemy Coursera",
+    "a blog article or newsletter",
+    "handwritten or digital study notes",
+    "a book page or Kindle highlight",
+    # People & Faces
+    "a portrait photo of a single person's face",
+    "a group photo of multiple people together",
+    "a circular profile picture or avatar of a person",
+    "a selfie photo taken by the person themselves",
+    # Personal
+    "a reminder alarm or to-do list",
+    "a calendar event or meeting schedule",
+    "a contact card with phone number",
+    # Maps & Places
+    "a navigation map with directions or route",
+    "a food delivery app like Zomato or Swiggy",
+    "a ride-hailing app like Uber or Ola",
+    # Media & Entertainment
+    "a streaming app like Netflix Disney Hotstar",
+    "a music player or album with song playing",
+    "a mobile game or gaming leaderboard",
+    # Health
+    "a health fitness tracker with steps or calories",
+    "a medical prescription or doctor report",
+    # Other
+    "a screenshot of miscellaneous or unrecognized content",
 ]
 
 # Maps CLIP label index → (category, subcategory, content_type)
 CLIP_LABEL_MAPPING: list[tuple[str, str, str]] = [
-    ("Finance", "Receipts & Invoices", "receipt"),
-    ("Finance", "Bank Statements", "document"),
-    ("Finance", "UPI Transactions", "transaction"),
-    ("Technology", "Code & Development", "code"),
-    ("Technology", "AI & Machine Learning", "article"),
-    ("Technology", "Open Source", "post"),
-    ("Technology", "Tutorials", "article"),
-    ("Social & Content", "LinkedIn", "post"),
-    ("Social & Content", "Twitter/X", "post"),
-    ("Social & Content", "Instagram", "post"),
-    ("Social & Content", "YouTube", "post"),
-    ("Social & Content", "Quotes & Inspiration", "quote"),
-    ("Learning", "Courses", "article"),
-    ("Learning", "Articles & Blogs", "article"),
-    ("Learning", "Notes", "note"),
-    ("Learning", "Books & Reading", "document"),
-    ("Personal", "Chats & Messages", "chat"),
-    ("Personal", "Reminders", "reminder"),
-    ("Personal", "Calendar & Events", "calendar"),
-    ("Maps & Places", "Navigation", "map"),
-    ("Media & Entertainment", "Movies & Shows", "media"),
-    ("Media & Entertainment", "Music", "media"),
-    ("Finance", "Shopping", "receipt"),
-    ("Other", "Uncategorized", "other"),
+    # Finance
+    ("Finance", "Payment Apps", "transaction"),           # PhonePe
+    ("Finance", "Payment Apps", "transaction"),           # GPay
+    ("Finance", "Payment Apps", "transaction"),           # Paytm
+    ("Finance", "Payment Apps", "transaction"),           # MobiKwik
+    ("Finance", "UPI Transactions", "transaction"),       # UPI
+    ("Finance", "Receipts & Invoices", "receipt"),        # receipt/invoice
+    ("Finance", "Receipts & Invoices", "receipt"),        # GST invoice
+    ("Finance", "Bank Statements", "document"),           # bank statement
+    ("Finance", "Shopping", "receipt"),                   # e-commerce order
+    ("Finance", "Budgets", "document"),                   # budget
+    # Instagram
+    ("Social & Content", "Instagram Chats", "chat"),      # IG DM
+    ("Social & Content", "Instagram Posts", "post"),      # IG post
+    ("Social & Content", "Instagram Stories & Reels", "post"),  # IG story/reel
+    ("Social & Content", "Instagram", "post"),            # IG profile
+    # Other social
+    ("Social & Content", "Twitter/X Posts", "post"),      # Twitter
+    ("Social & Content", "LinkedIn Posts", "post"),       # LinkedIn
+    ("Personal", "WhatsApp Chats", "chat"),               # WhatsApp
+    ("Personal", "Telegram Chats", "chat"),               # Telegram
+    ("Social & Content", "YouTube", "post"),              # YouTube
+    ("Social & Content", "Reddit", "post"),               # Reddit
+    ("Social & Content", "Facebook", "post"),             # Facebook
+    ("Social & Content", "Snapchat", "post"),             # Snapchat
+    ("Social & Content", "Quotes & Inspiration", "quote"), # quote
+    # Technology
+    ("Technology", "Code & Development", "code"),         # code
+    ("Technology", "AI & Machine Learning", "article"),   # AI chatbot
+    ("Technology", "Open Source", "post"),                # GitHub
+    ("Technology", "Tutorials", "article"),               # tutorial
+    # Learning
+    ("Learning", "Courses", "article"),                   # online course
+    ("Learning", "Articles & Blogs", "article"),          # blog
+    ("Learning", "Notes", "note"),                        # notes
+    ("Learning", "Books & Reading", "document"),          # book
+    # People & Faces
+    ("People & Faces", "Portraits", "photo"),             # portrait
+    ("People & Faces", "Group Photos", "photo"),          # group photo
+    ("People & Faces", "Profile Pictures", "photo"),      # circular profile pic
+    ("People & Faces", "Portraits", "photo"),             # selfie
+    # Personal
+    ("Personal", "Reminders", "reminder"),                # reminder
+    ("Personal", "Calendar & Events", "calendar"),        # calendar
+    ("Personal", "Contacts", "contact"),                  # contact
+    # Maps
+    ("Maps & Places", "Navigation", "map"),               # navigation
+    ("Maps & Places", "Food & Restaurants", "place"),     # food delivery
+    ("Maps & Places", "Navigation", "map"),               # ride-hailing
+    # Media
+    ("Media & Entertainment", "Movies & Shows", "media"), # streaming
+    ("Media & Entertainment", "Music", "media"),           # music
+    ("Media & Entertainment", "Gaming", "media"),          # gaming
+    # Health
+    ("Health & Fitness", "Activity Tracking", "health"),  # fitness
+    ("Health & Fitness", "Medical", "document"),           # medical
+    # Other
+    ("Other", "Uncategorized", "other"),                   # misc
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

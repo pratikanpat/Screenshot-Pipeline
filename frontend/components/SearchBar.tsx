@@ -16,8 +16,8 @@ interface Props {
 
 const MODES: { value: SearchMode; label: string; desc: string; available: boolean }[] = [
   { value: "keyword",  label: "Keyword",  desc: "Exact & prefix match",   available: true },
-  { value: "semantic", label: "Semantic", desc: "By meaning — coming soon", available: false },
-  { value: "hybrid",   label: "Hybrid",   desc: "Best of both — coming soon", available: false },
+  { value: "semantic", label: "Semantic", desc: "By meaning & visual similarity", available: true },
+  { value: "hybrid",   label: "Hybrid",   desc: "Keyword + semantic (best results)", available: true },
 ];
 
 export default function SearchBar({
