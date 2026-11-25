@@ -1,738 +1,1172 @@
-<div align="center">
+# ScreenshotKB — Developer Documentation
 
-# 📸 Screenshot Knowledge Base
-
-**Turn your screenshot folder into a fully searchable, auto-organised knowledge library.**
-
-[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-Drop a folder of screenshots → OCR extracts every word → CLIP understands what's in each image → keyword & semantic search just works.
-**100% free. 100% local. No cloud. No API keys. No subscriptions.**
-
-</div>
+> **A private visual knowledge base that turns scattered screenshots into a searchable, organized archive.**
+> 100% local · 100% free · No cloud APIs · Windows / Python 3.13 / SQLite
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [What This Does](#-what-this-does)
-- [How It Works](#-how-it-works)
-- [Prerequisites](#-prerequisites)
-- [Where to Run Commands](#-where-to-run-commands)
-- [Installation — Step by Step](#-installation--step-by-step)
-- [Running the App](#-running-the-app)
-- [Using the App](#-using-the-app)
-- [CLI Reference](#-cli-reference)
-- [API Reference](#-api-reference)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [Troubleshooting](#-troubleshooting)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
+1. [What is ScreenshotKB?](#1-what-is-screenshotkb)
+2. [Architecture Overview](#2-architecture-overview)
+3. [The 6 Pipeline Stages — Step by Step](#3-the-6-pipeline-stages)
+4. [Database Schema — Every Table Explained](#4-database-schema)
+5. [Technology Map — What Each Tool Does Here](#5-technology-map)
+6. [File & Folder Structure with Connections](#6-file--folder-structure)
+7. [How to Run — All Commands](#7-how-to-run)
+8. [Current State of the Project](#8-current-state)
+9. [Design System & Frontend](#9-design-system--frontend)
+10. [Errors Encountered & Fixes](#10-errors--fixes)
+11. [Roadmap](#11-roadmap)
 
 ---
 
-## 🎯 What This Does
+## 1. What is ScreenshotKB?
 
-| Capability | Detail |
-|---|---|
-| 🔍 **Keyword Search** | Type `"upi payment"` → instantly see every screenshot containing those words |
-| 🧠 **Semantic Search** | Type `"money transactions"` → finds receipt screenshots even if those exact words never appear |
-| 🗂️ **Auto-Organisation** | Every screenshot is classified into categories: Finance, Technology, Social, Learning, Personal… |
-| 📝 **OCR** | Text is extracted from every screenshot using PaddleOCR (best-in-class for phone screenshots) |
-| 🌐 **Web Interface** | A clean dark-mode web app to browse, search and read OCR text |
-| 🔒 **Private by Design** | Everything runs on your own machine — your screenshots never leave your computer |
+ScreenshotKB is a **private, local-first visual archive** for your phone screenshots. You point it at a folder of screenshots (`C:\Users\Pratik\Pictures\MobScreenshots`) and it:
+
+1. Scans every image file and records it in a SQLite database
+2. Deduplicates by content hash (never re-processes the same file twice)
+3. Runs OCR (Optical Character Recognition) to extract all visible text
+4. Classifies each screenshot into a category (Finance, Social, Technology, etc.)
+5. Builds a full-text search index so you can search by any word in any screenshot
+6. Generates CLIP AI embeddings so you can search by meaning ("show me payment screenshots") even when the word doesn't appear literally
+7. Serves a web UI at `http://localhost:3000` where you can browse, search, and explore your screenshots
+
+**Everything runs on your machine. No internet required after setup.**
 
 ---
 
-## ⚙️ How It Works
+## 2. Architecture Overview
 
 ```
-Your Screenshot Folder
-        │
-        ▼
-  ┌─────────────┐
-  │  Ingestion  │  Scan files, compute SHA-256 hash (dedup + resume)
-  └──────┬──────┘
-         │
-  ┌──────▼──────┐
-  │     OCR     │  PaddleOCR (primary) → Tesseract (fallback if low confidence)
-  └──────┬──────┘
-         │
-  ┌──────▼──────┐
-  │  Classifier │  CLIP zero-shot + keyword rules → category, subcategory, tags
-  └──────┬──────┘
-         │
-  ┌──────▼──────┐
-  │  Embeddings │  CLIP image vectors stored in ChromaDB (powers semantic search)
-  └──────┬──────┘
-         │
-  ┌──────▼──────────────────────────────┐
-  │  SQLite + FTS5  │  ChromaDB         │
-  │  (keyword search)  (semantic search)│
-  └──────┬──────────────────────────────┘
-         │
-  ┌──────▼──────┐
-  │  FastAPI    │  REST API on http://localhost:8000
-  └──────┬──────┘
-         │
-  ┌──────▼──────┐
-  │  Next.js    │  Web UI on http://localhost:3000
-  └─────────────┘
+C:\Users\Pratik\Pictures\MobScreenshots\
+         (source screenshots — NEVER modified)
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │   run_pipeline.py   │  ← CLI entry point (Click commands)
+        │   (ingest/ocr/      │
+        │  classify/embed)    │
+        └─────────┬───────────┘
+                  │
+        ┌─────────▼───────────────────────────────┐
+        │              pipeline/                  │
+        │  ingestion.py → ocr.py → classifier.py  │
+        │  preprocessor.py  rules.py  embeddings.py│
+        └─────────┬───────────────────────────────┘
+                  │ reads/writes
+        ┌─────────▼───────────────────────────────┐
+        │          data/library.db (SQLite)        │
+        │  images | ocr_results | categories       │
+        │  embeddings | fts_index (FTS5)           │
+        └─────────┬───────────────────────────────┘
+                  │ also writes to
+        ┌─────────▼───────────┐
+        │   data/chroma/      │  ← ChromaDB (8,615 CLIP vectors)
+        └─────────────────────┘
+                  │
+        ┌─────────▼───────────┐
+        │  backend/api/       │  ← FastAPI + Uvicorn (port 8000)
+        │  main.py + routes/  │
+        └─────────┬───────────┘
+                  │ HTTP REST API
+        ┌─────────▼───────────┐
+        │  frontend/          │  ← Next.js 16 (port 3000)
+        │  (React + Tailwind) │
+        └─────────────────────┘
 ```
 
 ---
 
-## 🖥️ Prerequisites
+## 3. The 6 Pipeline Stages
 
-Install these before starting. Click each link for the official download page.
+### Stage 1 — Scan (`ingestion.py::scan_folder`)
 
-| Tool | Minimum Version | Download |
-|---|---|---|
-| **Python** | 3.11+ | [python.org/downloads](https://www.python.org/downloads/) |
-| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) |
-| **Tesseract OCR** | 5.x | [UB Mannheim installer (Windows)](https://github.com/UB-Mannheim/tesseract/wiki) |
-| **Git** | any | [git-scm.com](https://git-scm.com/) |
+**What it does:**
+Walks the directory `C:\Users\Pratik\Pictures\MobScreenshots` recursively. Filters files by extension: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, `.gif`. Returns a sorted `list[Path]`.
 
-### Verify your installs
+**What data flows in:** A folder path (string)
+**What data flows out:** `list[Path]` — absolute paths to all image files found
 
-Open a terminal and run:
-
-```bash
-python --version       # Should print Python 3.11.x or higher
-node --version         # Should print v18.x or higher
-npm --version          # Should print 9.x or higher
-tesseract --version    # Should print tesseract 5.x.x
-git --version          # Should print git version 2.x
+**Key code:**
+```python
+SUPPORTED = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".gif"}
+paths = sorted(p for p in source.rglob("*") if p.suffix.lower() in SUPPORTED)
 ```
 
-> **Windows users:** If `tesseract` is not found, add `C:\Program Files\Tesseract-OCR` to your system PATH, or the OCR engine will auto-detect it.
+No database access in this step — it's just filesystem walking.
 
 ---
 
-## 🖱️ Where to Run Commands
+### Stage 2 — Hash & Dedup (`ingestion.py::calculate_sha256` + `run_ingestion`)
 
-All commands in this guide are run in a **terminal (command line)**. Here are three ways to open one:
+**What it does:**
+For every file from Stage 1:
+1. Reads the file in **1 MB chunks** using `hashlib.sha256`
+2. Produces a 64-character hex string (e.g. `a3f9b2c1...`) — the SHA-256 fingerprint
+3. Checks the `images` table: `SELECT id FROM images WHERE sha256 = ?`
+4. If found → skips (counted as "skipped") — no duplicate records
+5. If new → extracts metadata:
+   - File modification time (mtime) in seconds and nanoseconds
+   - Date from filename using regex `\d{4}-\d{2}-\d{2}` (e.g. `Screenshot_2024-03-15_...`)
+   - Width/height using `PIL.Image.open(path).size`
+6. Inserts one row into the `images` table with `status = 'pending'`
 
-### Option A — VS Code Integrated Terminal ✅ Recommended
+**What data flows in:** `list[Path]` from Stage 1
+**What data flows out:** Rows in the `images` table with `status='pending'`
 
-1. Open VS Code
-2. Open the project folder: **File → Open Folder → Screenshot-Knowledge-Base**
-3. Press `` Ctrl + ` `` (backtick) to open the terminal
-4. The terminal opens **already inside the project folder** — no `cd` needed
-
-### Option B — Windows PowerShell
-
-1. Press `Win + R`, type `powershell`, press Enter
-2. Navigate to the project:
-   ```powershell
-   cd "C:\Users\YourName\Documents\Screenshot-Knowledge-Base"
-   ```
-
-### Option C — Windows Terminal / CMD
-
-1. Open Windows Terminal (search it in Start Menu)
-2. Navigate to the project:
-   ```cmd
-   cd C:\Users\YourName\Documents\Screenshot-Knowledge-Base
-   ```
-
-> **Important:** You will need **two terminal windows open at the same time** when running the full app — one for the Python backend and one for the Next.js frontend.
+**Files involved:**
+- `backend/pipeline/ingestion.py` — does the work
+- `backend/db/database.py` — provides the SQLite connection
+- `backend/db/schema.py` — defines the `images` table DDL
 
 ---
 
-## 📦 Installation — Step by Step
+### Stage 3 — OCR (`pipeline/ocr.py` + `pipeline/preprocessor.py`)
 
-### Step 1 — Clone the Repository
+**What it does:**
+Queries `images` where `status = 'pending'` (or `'error'` if `--retry-failed`). For each image:
 
-```bash
-git clone https://github.com/pratikanpat/Screenshot-Pipeline.git
-cd Screenshot-Pipeline
-```
+**Sub-step A — Image Preprocessing (`preprocessor.py`):**
+1. Opens the image with Pillow
+2. Upscales by 2× using `Image.LANCZOS` (makes small text bigger for OCR)
+3. Sharpens using `ImageFilter.SHARPEN`
+4. Checks if the image is dark-mode (mean pixel brightness < 100) → if yes, inverts colors (dark-mode text becomes black on white)
+5. Converts to grayscale
 
-> **Alternative:** If you downloaded a ZIP, extract it and open that folder in your terminal.
+**Sub-step B — Tesseract OCR:**
+1. Calls `pytesseract.image_to_data(enhanced_img, config='--oem 3 --psm 6')`
+   - `--oem 3` = use LSTM neural network (most accurate)
+   - `--psm 6` = assume a uniform block of text
+2. Gets back a dict with per-word `text` and `conf` (confidence 0–100)
+3. Filters out words with confidence < 50 or empty strings
+4. Counts words: if < 3 words found → stores empty string (image has no readable text)
+5. Calculates mean confidence across all accepted words
 
----
+**Writes to database:**
+- `ocr_results` table: `extracted_text`, `confidence`, `engine='tesseract'`, `word_count`, `processed_at`
+- Updates `images.status` → `'ocr_done'`
 
-### Step 2 — Create a Python Virtual Environment
-
-A virtual environment keeps this project's dependencies isolated from your system Python.
-
-```bash
-# Create the virtual environment
-python -m venv .venv
-```
-
-**Activate it** (you must do this every time you open a new terminal for this project):
-
-```bash
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
-# Windows CMD
-.venv\Scripts\activate.bat
-
-# macOS / Linux
-source .venv/bin/activate
-```
-
-You will see `(.venv)` appear at the start of your terminal prompt — that means it's active.
+**Files involved:**
+- `backend/pipeline/ocr.py` — orchestrates OCR
+- `backend/pipeline/preprocessor.py` — image enhancement (Pillow only, no DB)
+- `backend/db/ocr.py` — `get_pending_images()` and `save_ocr_result()`
 
 ---
 
-### Step 3 — Install Python Dependencies
+### Stage 4 — Classify (`pipeline/classifier.py` + `pipeline/rules.py`)
 
-```bash
-pip install -r requirements.txt
+**What it does:**
+Queries `images JOIN ocr_results` for all images with OCR text but no category yet.
+
+**Two-stage classification:**
+
+**Stage 4A — Rule Engine (`rules.py::classify_by_rules`):**
+Checks the OCR text against 50+ keyword dictionaries. These are deterministic:
+```python
+PAYMENT_APPS_KEYWORDS = ["phonepe", "gpay", "google pay", "paytm", "mobikwik", "upi", ...]
+INSTAGRAM_CHAT_KEYWORDS = ["instagram", "direct", "message request", "seen", ...]
 ```
+If a keyword set matches → assigns category/subcategory directly with `confidence = 0.95`, `method = 'rule_based'`.
 
-This installs: PaddleOCR, Tesseract bindings, CLIP (sentence-transformers), ChromaDB, FastAPI, Pillow, and all other dependencies.
+**Stage 4B — CLIP Zero-Shot (`classifier.py::_clip_classify`):**
+If NO rule matched (image had unusual/no text):
+1. Opens the image with Pillow → converts to RGB
+2. Calls `model.encode(image)` → 512-dimensional float array (the visual embedding)
+3. Calls `model.encode(label_text)` for each of 50 natural-language descriptions (e.g. "a PhonePe payment confirmation screen")
+4. Computes cosine similarity between image embedding and each label embedding
+5. Picks the label with highest similarity score
+6. Maps that label index to `(category, subcategory, content_type)` via `CLIP_LABEL_MAPPING`
+7. Saves with `method = 'clip_zeroshot'`
 
-> ⚠️ **This takes 5–10 minutes** on first run. PyTorch (~800 MB) and PaddleOCR (~200 MB) are large packages. Let it finish.
+**After classification:**
+- `save_category()` → writes to `categories` table
+- `build_fts_index()` → writes to `fts_index` virtual table (see Stage 5)
+- Updates `images.status` → `'classified'`
 
-> 💡 **Low disk space?** The minimum install (Tesseract-only, no CLIP/ChromaDB) uses ~200 MB. Comment out the `paddlepaddle`, `paddleocr`, `torch`, `sentence-transformers`, and `chromadb` lines in `requirements.txt` — keyword search will still work, semantic search won't.
+**Files involved:**
+- `backend/pipeline/classifier.py` — CLIP + orchestration
+- `backend/pipeline/rules.py` — keyword matching (pure Python, no DB)
+- `backend/db/categories.py` — `save_category()`, `build_fts_index()`
 
 ---
 
-### Step 4 — Install Frontend Dependencies
+### Stage 5 — Index (`db/categories.py::build_fts_index`)
 
-```bash
-cd frontend
-npm install
-cd ..
+**What it does:**
+This happens inside Stage 4, right after each image is classified. It populates the FTS5 full-text search virtual table:
+
+```python
+conn.execute("DELETE FROM fts_index WHERE image_id = ?", (image_id,))
+conn.execute(
+    "INSERT INTO fts_index(image_id, text_content, tags) VALUES (?, ?, ?)",
+    (image_id, ocr_text, " ".join(tags_list))
+)
 ```
 
-> This installs Next.js and all UI dependencies into `frontend/node_modules/`. Takes ~1 minute.
+The FTS5 engine processes this text with the **Porter stemmer** — meaning "searching" is indexed as "search", so a query for "search" also finds documents with "searching" and "searches". SQLite handles this automatically.
+
+**What data flows in:** `image_id`, OCR text, list of tags (e.g. `["phonepe", "payment", "upi"]`)
+**What data flows out:** Rows in `fts_index` virtual table
 
 ---
 
-### Step 5 — Verify Everything Works
+### Stage 6 — Serve (`api/main.py` + `api/routes/`)
 
-```bash
-# Check Python can find key packages
-python -c "import fastapi; import PIL; print('Python deps OK')"
+**What it does:**
+FastAPI + Uvicorn runs a REST API server on `http://localhost:8000`. The Next.js frontend at `http://localhost:3000` calls it.
 
-# Check Tesseract
-tesseract --version
+**API Endpoints:**
 
-# Check Node
-node --version
-```
+| Method | Path | What it does |
+|--------|------|-------------|
+| `GET` | `/images` | List all images (paginated). Reads `images + categories` tables. |
+| `GET` | `/images/{id}` | Get one image's full details (OCR text, category, tags). Reads `images + ocr_results + categories`. |
+| `GET` | `/images/{id}/thumbnail` | Generate a 400×400 JPEG thumbnail on-the-fly with Pillow. Streams bytes. |
+| `GET` | `/search?q=...&mode=keyword` | FTS5 keyword search with Porter stemming + HTML snippets |
+| `GET` | `/search?q=...&mode=semantic` | CLIP semantic search via ChromaDB |
+| `GET` | `/search?q=...&mode=hybrid` | Both keyword + semantic, merged and re-ranked |
+| `GET` | `/categories` | List all categories with counts |
+| `POST` | `/process/ingest` | Trigger ingestion from API |
 
-All three should print without errors.
-
----
-
-## 🚀 Running the App
-
-You need **two terminals** running side by side.
-
-### Terminal 1 — Python Backend (API + Pipeline)
-
-```bash
-# 1. Activate your virtual environment first
-.venv\Scripts\Activate.ps1        # Windows
-# source .venv/bin/activate        # macOS/Linux
-
-# 2. Run the full pipeline on your screenshots
-#    Replace the path with your actual screenshots folder
-python -m backend.run_pipeline process-all --source "C:\Users\Pratik\Pictures\MobScreenshots"
-
-# 3. After indexing is done, start the API server
-uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API is now running at **http://localhost:8000**
+**Files involved:**
+- `backend/api/main.py` — FastAPI app setup, CORS, lifespan
+- `backend/api/routes/images.py` — image endpoints
+- `backend/api/routes/search.py` — search endpoints (all 3 modes)
+- `backend/api/routes/categories.py` — category listing
+- `backend/api/routes/process.py` — trigger pipeline from API
+- `backend/api/models.py` — Pydantic response models
 
 ---
 
-### Terminal 2 — Next.js Frontend
+## 4. Database Schema
 
-```bash
-cd frontend
-npm run dev
+The database file is `data/library.db` (SQLite). Created automatically on first run.
+
+### Table: `images` ← Master Registry
+
+Every screenshot gets exactly one row here. This is the source of truth.
+
+```sql
+CREATE TABLE IF NOT EXISTS images (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename        TEXT    NOT NULL,
+    original_path   TEXT    NOT NULL UNIQUE,  -- absolute Windows path
+    sha256          TEXT    NOT NULL,          -- 64-char hex, used for dedup
+    file_size       INTEGER NOT NULL,          -- bytes
+    width           INTEGER,                   -- pixels (from Pillow)
+    height          INTEGER,                   -- pixels
+    image_format    TEXT,                      -- "PNG", "JPEG", "WEBP", etc.
+    captured_at     TEXT,                      -- ISO-8601 from filename regex
+    modified_at     TEXT    NOT NULL,          -- file mtime (ISO-8601 string)
+    modified_at_ns  INTEGER NOT NULL,          -- file mtime in nanoseconds
+    status          TEXT    NOT NULL DEFAULT 'pending',
+                            -- Values: pending | ocr_done | classified | error
+    indexed_at      TEXT                       -- when last classified
+);
 ```
 
-The web app is now running at **http://localhost:3000**
+**Indexes on `images`:**
+```sql
+CREATE INDEX idx_images_sha256 ON images(sha256);
+CREATE INDEX idx_images_status ON images(status);
+```
+
+**Who writes here:** `ingestion.py` (INSERT), `ocr.py` (UPDATE status), `classifier.py` (UPDATE status)
 
 ---
 
-### Open the App
+### Table: `ocr_results` ← Text Extracted from Each Image
 
-| URL | What you get |
-|---|---|
-| **http://localhost:3000** | Web app (home, search, library, image detail) |
-| **http://localhost:8000** | API info JSON |
-| **http://localhost:8000/docs** | Interactive API explorer (Swagger UI) |
-| **http://localhost:8000/redoc** | API docs (ReDoc) |
+One row per image (1:1 relationship with `images`).
+
+```sql
+CREATE TABLE IF NOT EXISTS ocr_results (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_id       INTEGER NOT NULL UNIQUE REFERENCES images(id) ON DELETE CASCADE,
+    extracted_text TEXT    NOT NULL DEFAULT '',  -- full text from Tesseract
+    language       TEXT,                         -- detected language
+    confidence     REAL,                         -- 0.0–100.0 (mean word confidence)
+    engine         TEXT    NOT NULL,             -- "tesseract" (or "paddleocr" if installed)
+    word_count     INTEGER NOT NULL DEFAULT 0,
+    processed_at   TEXT    NOT NULL              -- ISO-8601 timestamp
+);
+```
+
+**Index:**
+```sql
+CREATE INDEX idx_ocr_image ON ocr_results(image_id);
+```
+
+**Who writes here:** `pipeline/ocr.py` via `db/ocr.py::save_ocr_result()`
+**Who reads here:** `classifier.py` (JOINs to get the text), `api/routes/images.py` (for detail view)
 
 ---
 
-## 📖 Using the App
+### Table: `categories` ← Classification Results
 
-### For New Users — First Time Setup
+One row per image (1:1 with `images`).
 
-1. **Index your screenshots** (run this once, takes 10–30 min for 8,000+ images):
-   ```bash
-   python -m backend.run_pipeline process-all --source "C:\path\to\your\screenshots"
-   ```
+```sql
+CREATE TABLE IF NOT EXISTS categories (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_id     INTEGER NOT NULL UNIQUE REFERENCES images(id) ON DELETE CASCADE,
+    category     TEXT    NOT NULL,          -- e.g. "Finance"
+    subcategory  TEXT,                      -- e.g. "Payment Apps"
+    content_type TEXT,                      -- e.g. "transaction", "chat", "post"
+    tags         TEXT    NOT NULL DEFAULT '[]',  -- JSON array: '["phonepe","upi"]'
+    confidence   REAL,                      -- 0.0–1.0
+    method       TEXT    NOT NULL,          -- "rule_based" | "clip_zeroshot" | "fallback"
+    created_at   TEXT    NOT NULL
+);
+```
 
-2. **Watch the progress** — it prints a live progress bar:
-   ```
-   Ingest: 100%|████████████| 8616/8616 [02:14<00:00, 64.1img/s]
-   OCR:    100%|████████████| 8616/8616 [18:40<00:00,  7.7img/s]
-   Classify: 100%|██████████| 8616/8616 [04:22<00:00, 32.8img/s]
-   ```
+**Indexes:**
+```sql
+CREATE INDEX idx_categories_image    ON categories(image_id);
+CREATE INDEX idx_categories_category ON categories(category);
+```
 
-3. **If it gets interrupted**, just run the same command again — it resumes exactly where it stopped (SHA-256 based deduplication).
+**Who writes here:** `pipeline/classifier.py` via `db/categories.py::save_category()`
+**Who reads here:** `api/routes/search.py` (for category info in results), `api/routes/categories.py`
 
-4. **Open http://localhost:3000** and start searching!
+**Note on `tags` column:** Stored as a JSON string in SQLite (e.g. `'["phonepe","upi","500"]'`). Pydantic automatically parses this back to `list[str]` before sending to the frontend.
 
 ---
 
-### Search
+### Table: `embeddings` ← Pointer to ChromaDB Vectors
 
-**Keyword Search** — finds screenshots where those exact words appear in the image text:
-```
-invoice april 2025
-python error traceback
-upi payment successful
-```
+One row per image. The actual 512-float vectors live in `data/chroma/`, NOT in SQLite.
 
-**Semantic Search** — finds screenshots by meaning (requires CLIP/ChromaDB installed):
-```
-money transactions          → finds receipts even without the word "receipt"
-coding tutorials            → finds code screenshots
-motivational content        → finds quote screenshots
+```sql
+CREATE TABLE IF NOT EXISTS embeddings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_id   INTEGER NOT NULL UNIQUE REFERENCES images(id) ON DELETE CASCADE,
+    model      TEXT    NOT NULL,   -- "clip-ViT-B-32"
+    created_at TEXT    NOT NULL
+);
 ```
 
-**Hybrid Search** — combines both for best results.
+**Index:**
+```sql
+CREATE INDEX idx_embeddings_image ON embeddings(image_id);
+```
+
+**Who writes here:** `pipeline/embeddings.py` (after upserting to ChromaDB)
+**Who reads here:** `api/routes/search.py` (to verify embedding exists before semantic search)
+
+**Where the actual vectors are:** `data/chroma/` — ChromaDB's HNSW (Hierarchical Navigable Small World) index. Keyed by `str(image_id)` (e.g. `"5777"`).
 
 ---
 
-### Browse by Category
+### Table: `fts_index` ← Full-Text Search Virtual Table (FTS5)
 
-The Library page organises your screenshots into:
+This is a **SQLite FTS5 virtual table** — it has no physical rows in the normal sense. The FTS5 engine manages its own B-tree indexes internally.
 
+```sql
+CREATE VIRTUAL TABLE IF NOT EXISTS fts_index USING fts5(
+    image_id     UNINDEXED,    -- not tokenized; just a join key back to images
+    text_content,              -- full OCR text (Porter-stemmed at insert time)
+    tags,                      -- space-separated tag list
+    tokenize = 'porter unicode61'   -- English stemming + Unicode support
+);
 ```
-Technology      → Code, AI, Open Source, Tutorials
-Finance         → Receipts, Bank Statements, UPI, Shopping
-Social & Content→ LinkedIn, Twitter/X, Instagram, YouTube, Quotes
-Learning        → Articles, Notes, Books, Courses
-Personal        → Chats, Reminders, Calendar, Contacts
-Maps & Places   → Navigation, Locations
-Media & Entertainment → Movies, Music, Gaming
-```
+
+**What "Porter stemmer" means here:**
+When you insert "PhonePe payment confirmed", FTS5 stores tokens like: `phonepe`, `payment`, `confirm`. When you search "payments", FTS5 also stems it to `payment` and finds the same documents. This is why searching "confirming" finds screenshots that say "confirmed".
+
+**Who writes here:** `db/categories.py::build_fts_index()` (called by classifier after every classification)
+**Who reads here:** `db/search.py::keyword_search()` using `MATCH` syntax
 
 ---
 
-### Image Detail Page
+### Entity Relationship Diagram
 
-Click any screenshot to see:
-- Full-resolution original image
-- All extracted OCR text (with copy button)
-- Category, subcategory, content type
-- Tags (each tag is a clickable search link)
-- OCR confidence, engine used, word count
-- File metadata (date, dimensions, size)
+```
+images (1) ─────────────── (1) ocr_results
+   │                              (extracted_text, confidence, engine)
+   │
+   ├─────────────────────── (1) categories
+   │                              (category, subcategory, tags, method)
+   │
+   ├─────────────────────── (1) embeddings
+   │                              (model → points to data/chroma/)
+   │
+   └─────────────────────── (1) fts_index [virtual]
+                                   (text_content, tags — for MATCH queries)
+```
+
+All child tables use `ON DELETE CASCADE` — deleting an image from `images` automatically removes its OCR result, category, embedding pointer, and FTS entry.
 
 ---
 
-## 🛠️ CLI Reference
+## 5. Technology Map
 
-All commands use `python -m backend.run_pipeline`. Run from the project root with the venv active.
+### hashlib (Python stdlib)
 
-### `ingest` — Scan and register screenshots
+**Used in:** `backend/pipeline/ingestion.py::calculate_sha256()`
 
-```bash
-python -m backend.run_pipeline ingest --source "C:\path\to\screenshots"
+**What it does here:** Reads each image file in **1 MB chunks** (not all at once — avoids RAM spikes on large images), feeds chunks to `hashlib.sha256().update()`, then calls `.hexdigest()` to get a 64-character string like `a3f9b2c1d4e5...`.
 
-# Options:
-#   --source PATH    Folder containing screenshots (default: ~/Pictures/MobScreenshots)
-#   --limit  N       Only process first N files (useful for testing)
-#   --db     PATH    Custom database path (default: data/library.db)
-```
+This hex string is stored in `images.sha256`. On every ingest run, the pipeline checks this column first — if the hash already exists, it skips the file entirely. This prevents duplicates even if you rename or move a file.
 
-### `ocr` — Extract text from images
-
-```bash
-python -m backend.run_pipeline ocr
-
-# Options:
-#   --limit N          Process N images
-#   --retry-failed     Retry previously failed images
-#   --force            Re-run OCR on all images (overwrites existing results)
-#   --db PATH          Custom database path
-```
-
-### `classify` — Auto-categorise screenshots
-
-```bash
-python -m backend.run_pipeline classify
-
-# Options:
-#   --limit N     Classify N images
-#   --force       Re-classify already-classified images
-#   --db PATH     Custom database path
-```
-
-### `embed` — Generate CLIP vectors for semantic search
-
-```bash
-python -m backend.run_pipeline embed
-
-# Options:
-#   --limit N     Embed N images
-#   --force       Re-embed already embedded images
-#   --db PATH     Custom database path
-```
-
-### `process-all` — Run the full pipeline in one command ✅
-
-```bash
-python -m backend.run_pipeline process-all --source "C:\path\to\screenshots"
-
-# Options:
-#   --source PATH    Screenshot folder
-#   --limit  N       Limit per stage (good for testing: --limit 50)
-#   --db     PATH    Custom database path
-```
-
-### `status` — Check pipeline progress
-
-```bash
-python -m backend.run_pipeline status
-
-# Output example:
-# Total images   : 8,616
-# Classified     : 8,214
-# Pending        : 402
-# Failed         : 0
+```python
+def calculate_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1_048_576), b""):
+            h.update(chunk)
+    return h.hexdigest()
 ```
 
 ---
 
-## 🌐 API Reference
+### Pillow (PIL)
 
-The API runs at `http://localhost:8000`. Full interactive docs at `/docs`.
+**Used in 4 distinct places:**
 
-### Search
-
+**1. During ingestion** (`ingestion.py`):
+```python
+with Image.open(path) as img:
+    width, height = img.size       # e.g. (1080, 2400)
+    image_format = img.format      # "PNG", "JPEG", etc.
 ```
-GET /search?q=<query>&mode=keyword|semantic|hybrid&limit=20&offset=0
+Gets dimensions and format for the `images` table. The image is immediately closed — no transformation.
+
+**2. During OCR preprocessing** (`preprocessor.py`):
+```python
+img = img.resize((w*2, h*2), Image.LANCZOS)   # 2× upscale for better OCR
+img = img.filter(ImageFilter.SHARPEN)           # sharpen edges
+if mean_brightness < 100:
+    img = ImageOps.invert(img.convert("RGB"))   # invert dark-mode screenshots
+img = img.convert("L")                          # grayscale for Tesseract
+```
+The result is a preprocessed image in memory — never saved to disk.
+
+**3. During CLIP classification** (`classifier.py`):
+```python
+with Image.open(image_path) as img:
+    image = img.convert("RGB")     # CLIP needs RGB, no alpha channel
+# image → model.encode(image) → 512-dim vector
 ```
 
-```bash
-# Examples
-curl "http://localhost:8000/search?q=upi+payment&mode=keyword"
-curl "http://localhost:8000/search?q=code+tutorials&mode=semantic"
-curl "http://localhost:8000/search?q=github&mode=hybrid&limit=10"
+**4. During thumbnail generation** (`api/routes/images.py`):
+```python
+img.thumbnail((400, 400), Image.LANCZOS)   # letterbox within 400×400
+buf = io.BytesIO()
+img.save(buf, "JPEG", quality=85)
+buf.seek(0)
+return StreamingResponse(buf, media_type="image/jpeg")
+```
+Thumbnails are **never saved to disk** — generated on every request and streamed directly to the browser.
+
+---
+
+### pytesseract + Tesseract OCR
+
+**Used in:** `backend/pipeline/ocr.py`
+
+**What it does here:**
+```python
+data = pytesseract.image_to_data(
+    enhanced_img,
+    config="--oem 3 --psm 6",
+    output_type=pytesseract.Output.DICT
+)
 ```
 
-**Response:**
-```json
+This calls the **Tesseract binary** at `C:\Program Files\Tesseract-OCR\tesseract.exe`. The `-c` flags mean:
+- `--oem 3` = LSTM neural network mode (best accuracy, slowest)
+- `--psm 6` = Assume uniform block of text (good for phone screenshots)
+
+The return value is a Python dict with parallel arrays:
+```python
 {
-  "query": "upi payment",
-  "mode": "keyword",
-  "total": 14,
-  "results": [
-    {
-      "image_id": 423,
-      "filename": "Screenshot_20261101-142301.png",
-      "category": "Finance",
-      "subcategory": "UPI Transactions",
-      "tags": ["upi", "payment", "gpay"],
-      "snippet": "Payment <b>UPI</b> successful ₹500 to...",
-      "score": 8.42
-    }
-  ],
-  "time_ms": 12.4
+    "text": ["PhonePe", "₹500", "sent", "to", ...],
+    "conf": [92.3, 87.1, 94.5, 88.0, ...],   # confidence per word
+    ...
 }
 ```
 
-### Images
-
-```
-GET /images                    → paginated list
-GET /images/{id}               → full detail + OCR text
-GET /images/{id}/thumbnail     → JPEG thumbnail (400×400, letterboxed)
-GET /images/{id}/file          → original file
-```
-
-### Categories
-
-```
-GET /categories                → all categories with counts
-GET /categories/tree           → nested category tree
-GET /categories/{name}/images  → images in a category
-```
-
-### Pipeline
-
-```
-GET  /process/status           → current pipeline state
-POST /process/start            → start pipeline in background
-```
-
-```bash
-# Start pipeline via API
-curl -X POST http://localhost:8000/process/start \
-  -H "Content-Type: application/json" \
-  -d '{"source": "C:\\Users\\Pratik\\Pictures\\MobScreenshots", "steps": ["ingest","ocr","classify","embed"]}'
-```
+The pipeline:
+1. Zips `text` and `conf` together
+2. Filters out conf < 50 (low-confidence noise)
+3. Joins remaining words to form `extracted_text`
+4. Averages the confidence values → stored in `ocr_results.confidence`
+5. If fewer than 3 words remain → `word_count = 0`, `extracted_text = ''`
 
 ---
 
-## 📂 Project Structure
+### Click
+
+**Used in:** `backend/run_pipeline.py`
+
+**What it does here:** Turns Python functions into shell commands with flags. `@cli.command()` registers a function as a subcommand. `@click.option()` adds flags.
+
+```python
+@cli.command("ocr")
+@click.option("--limit", default=None, type=int, help="Max images to OCR")
+@click.option("--force", is_flag=True, default=False, help="Re-run OCR on already-processed")
+def ocr_cmd(limit, force, ...):
+    ...
+```
+
+This is why you can run:
+```powershell
+python -m backend.run_pipeline ocr --limit 100 --force
+python -m backend.run_pipeline classify --force
+python -m backend.run_pipeline embed
+python -m backend.run_pipeline process-all
+python -m backend.run_pipeline status
+```
+
+The `--force` flag becomes the `force=True` Python argument passed to `run_classification(conn, force=True)`, which changes the SQL query to include already-classified images.
+
+---
+
+### tqdm
+
+**Used in:** `ingestion.py`, `ocr.py`, `classifier.py`, `embeddings.py`
+
+**What it does here:**
+```python
+with tqdm(rows, desc="Classify", unit="img", dynamic_ncols=True) as bar:
+    for row in bar:
+        ...
+```
+
+This wraps the list of DB rows and prints a live progress bar like:
+```
+Classify: 57%|████████         | 4928/8615 [21:07<16:08,  6.79img/s]
+```
+
+It knows the total (length of `rows`), tracks time per iteration, and calculates ETA. `dynamic_ncols=True` adjusts to the terminal width. No configuration needed — it just works.
+
+---
+
+### Pydantic
+
+**Used in:** `backend/api/models.py`, consumed by all FastAPI routes
+
+**What it does here:**
+
+SQLite returns rows as Python dicts (via `conn.row_factory = sqlite3.Row`). These are raw — the `tags` column is a JSON string like `'["phonepe","upi"]'`, not a Python list.
+
+Pydantic models act as validators AND serializers:
+
+```python
+class ImageDetail(BaseModel):
+    id: int
+    filename: str
+    original_path: str
+    width: int | None = None
+    height: int | None = None
+    extracted_text: str = ""
+    ocr_confidence: float | None = None
+    engine: str = "tesseract"
+    word_count: int = 0
+    category: str = ""
+    subcategory: str = ""
+    tags: list[str] = []          # ← Pydantic parses '["a","b"]' → ["a","b"]
+    confidence: float = 0.0
+    method: str = ""
+```
+
+When FastAPI does `response_model=ImageDetail`, it:
+1. Takes the SQLite dict row
+2. Passes it as `ImageDetail(**row)`
+3. Pydantic validates each field's type
+4. Pydantic parses the JSON string in `tags` → Python `list[str]`
+5. FastAPI serializes the model to JSON for the HTTP response
+
+If a field is wrong type or missing, Pydantic raises `ValidationError` → FastAPI returns HTTP 422 automatically.
+
+---
+
+### FastAPI
+
+**Used in:** `backend/api/main.py` + `backend/api/routes/`
+
+**What it does here — specifically:**
+
+```python
+app = FastAPI(title="ScreenshotKB API", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"])
+```
+
+The `lifespan` context manager runs `init_db(conn)` on startup — this creates all 5 tables if they don't exist.
+
+**Route example (thumbnail):**
+```python
+@router.get("/images/{image_id}/thumbnail")
+async def get_thumbnail(image_id: int, db: Connection = Depends(get_db)):
+    row = db.execute("SELECT original_path FROM images WHERE id=?", (image_id,)).fetchone()
+    with Image.open(row["original_path"]) as img:
+        img.thumbnail((400, 400), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=85)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/jpeg")
+```
+
+**Route example (keyword search):**
+```python
+@router.get("/search", response_model=SearchResponse)
+async def search(q: str, mode: str = "keyword", limit: int = 50, db=Depends(get_db)):
+    if mode == "semantic":
+        results = semantic_search(q, n_results=limit)   # ChromaDB
+    elif mode == "hybrid":
+        results = hybrid_search(q, db, limit)
+    else:
+        results = keyword_search(q, db, limit)           # FTS5
+    return SearchResponse(query=q, results=results, ...)
+```
+
+CORS middleware allows the Next.js frontend (`localhost:3000`) to call the FastAPI backend (`localhost:8000`) cross-origin.
+
+---
+
+### Uvicorn
+
+**Used to serve FastAPI**
+
+**What it does here:**
+```powershell
+uvicorn backend.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Uvicorn is an ASGI (Asynchronous Server Gateway Interface) server. It:
+- Loads `backend/api/main.py` and finds the `app` object
+- Listens on `127.0.0.1:8000`
+- `--reload` watches the `backend/` directory for `.py` file changes and restarts automatically (dev mode)
+- Handles concurrent HTTP requests using Python `asyncio` (non-blocking I/O)
+
+---
+
+### SQLite FTS5
+
+**Used in:** `db/categories.py` (write), `db/search.py` (read)
+
+**What it does here:**
+
+**Writing:**
+```python
+conn.execute(
+    "INSERT INTO fts_index(image_id, text_content, tags) VALUES (?,?,?)",
+    (image_id, ocr_text, " ".join(tags))
+)
+```
+FTS5 immediately tokenizes and indexes `text_content` and `tags`.
+
+**Querying (keyword search):**
+```python
+def _safe_fts_query(raw: str) -> str:
+    # Strips FTS5 special chars, allows "quoted phrases" and word* prefix
+    return cleaned
+
+results = conn.execute("""
+    SELECT i.id, i.filename, i.original_path,
+           snippet(fts_index, 1, '<b>', '</b>', '…', 20) AS snippet,
+           -fts_index.rank AS score
+    FROM fts_index
+    JOIN images i ON fts_index.image_id = i.id
+    WHERE fts_index MATCH ?
+    ORDER BY fts_index.rank
+    LIMIT ?
+""", (safe_query, limit)).fetchall()
+```
+
+- `MATCH ?` — FTS5 full-text search with stemming
+- `snippet(fts_index, 1, '<b>', '</b>', '…', 20)` — returns a highlighted excerpt like `…<b>PhonePe</b> payment confirmed…`
+- `-fts_index.rank` — rank is negative (more negative = more relevant); negate it to get a positive score where higher = better
+
+---
+
+### ChromaDB
+
+**Used in:** `pipeline/embeddings.py::get_chroma_collection()`, `pipeline/embeddings.py::semantic_search()`
+
+**What it does here:**
+
+**Setup:**
+```python
+client = chromadb.PersistentClient(path=str(CHROMA_DIR))  # data/chroma/
+collection = client.get_or_create_collection(
+    name="screenshots",
+    metadata={"hnsw:space": "cosine"}   # use cosine distance metric
+)
+```
+
+**Writing one embedding:**
+```python
+collection.upsert(
+    ids=["5777"],                              # str(image_id)
+    embeddings=[[0.023, -0.187, ..., 0.041]], # 512 floats
+    metadatas=[{"filename": "Screenshot_2024-03-15.png"}]
+)
+```
+
+**Querying:**
+```python
+query_emb = model.encode("payment confirmation").tolist()   # 512 floats
+results = collection.query(
+    query_embeddings=[query_emb],
+    n_results=20
+)
+# returns: {"ids": [["5777","1203","4421",...]], "distances": [[0.12, 0.19, 0.23,...]]}
+```
+
+ChromaDB uses an **HNSW (Hierarchical Navigable Small World)** graph index stored in `data/chroma/` — it finds approximate nearest neighbours in milliseconds even with 8,615 vectors. Distance = cosine distance (0 = identical, 2 = completely opposite). Score = `1 - distance`.
+
+---
+
+### sentence-transformers (CLIP)
+
+**Used in:** `pipeline/classifier.py`, `pipeline/embeddings.py`
+
+**What it does here:**
+
+The model is `clip-ViT-B-32` — a Vision-Language model trained by OpenAI. It maps both images AND text into the same 512-dimensional vector space. Similar concepts end up close together.
+
+**Loading (singleton — loaded once per process):**
+```python
+_clip_model = SentenceTransformer("clip-ViT-B-32")
+```
+Downloads ~400 MB of model weights to `~/.cache/torch/` on first run. Subsequent runs load from cache.
+
+**Encoding an image:**
+```python
+img_emb = model.encode(image)        # PIL Image → 512-dim float32 numpy array
+```
+
+**Encoding text for classification:**
+```python
+label_embs = model.encode([
+    "a PhonePe payment confirmation screen",
+    "an Instagram direct message chat conversation",
+    ... # 50 labels total
+])  # → (50, 512) numpy array
+```
+
+**Cosine similarity to pick best label:**
+```python
+sims = torch.nn.functional.cosine_similarity(img_emb.unsqueeze(0), label_embs, dim=1)
+best_idx = int(sims.argmax())   # index of best-matching label
+```
+
+**Encoding text for semantic search:**
+```python
+query_emb = model.encode("payment confirmation").tolist()
+# → 512 floats in the same vector space as image embeddings
+# ChromaDB finds images nearest to this query vector
+```
+
+This is why searching "payment confirmation" in Semantic mode finds PhonePe screenshots even if the word "payment" doesn't appear in the OCR text — the visual content of the image is similar to the concept of "payment confirmation".
+
+---
+
+### Next.js (App Router)
+
+**Used in:** `frontend/`
+
+**Pages and what they render:**
+
+| File | Route | What it shows |
+|------|-------|---------------|
+| `app/page.tsx` | `/` | Home/dashboard — recent screenshots, stats |
+| `app/search/page.tsx` | `/search?q=...&mode=...` | Search results grid |
+| `app/library/page.tsx` | `/library` | Full library browser with category sidebar |
+| `app/image/[id]/page.tsx` | `/image/5777` | Detail view — full image + OCR text + metadata |
+| `app/layout.tsx` | All pages | AppSidebar + theme initialization script |
+
+App Router means each folder with `page.tsx` = one route. `[id]` in a folder name = dynamic segment.
+
+---
+
+### Tailwind CSS v4
+
+**Used in:** `frontend/app/globals.css`, `frontend/postcss.config.mjs`
+
+**How it's set up here:**
+```js
+// frontend/postcss.config.mjs
+export default {
+  plugins: { "@tailwindcss/postcss": {} }
+}
+```
+```css
+/* globals.css */
+@import "tailwindcss";
+```
+
+**How the design tokens work (custom CSS properties):**
+
+The design uses CSS custom properties (not Tailwind utility classes) for the color system:
+```css
+:root {
+  --bg-canvas: #F3F0E9;
+  --bg-surface: #FBFAF7;
+  --text-primary: #24231F;
+  --accent: #B65F43;
+  /* ... */
+}
+[data-theme="dark"] {
+  --bg-canvas: #191917;
+  --bg-surface: #22221F;
+  --text-primary: #EEEAE2;
+  --accent: #D58A6D;
+}
+```
+
+The 60-30-10 rule is applied: 60% canvas/surface colors, 30% secondary text colors, 10% accent. Tailwind utility classes are used only for layout (flex, grid, padding, margin).
+
+---
+
+### SWR (Stale-While-Revalidate)
+
+**Used in:** Frontend React components
+
+**What it does here:**
+```typescript
+const { data, error, isLoading } = useSWR('/api/images?limit=20', fetcher)
+```
+
+SWR is a React hook that:
+1. Makes the API call immediately (using `fetcher = url => fetch(url).then(r => r.json())`)
+2. Caches the result in memory (keyed by URL)
+3. Returns cached data instantly on re-render (no loading flicker)
+4. Revalidates in the background on window focus
+5. Shares data between components that use the same key (no duplicate requests)
+
+---
+
+## 6. File & Folder Structure
 
 ```
 Screenshot-Knowledge-Base/
 │
-├── backend/                        # Python backend
-│   ├── config.py                   # All paths, settings, thresholds
-│   ├── run_pipeline.py             # CLI entry point (ingest/ocr/classify/embed)
+├── backend/                        # All Python backend code
+│   ├── config.py                   # Centralized paths & settings — imported by ALL other backend files
+│   ├── run_pipeline.py             # CLI entry point (Click commands)
 │   │
-│   ├── pipeline/                   # Processing stages
-│   │   ├── ingestion.py            # File scan, SHA-256, metadata
-│   │   ├── preprocessor.py         # Image enhancement before OCR
-│   │   ├── ocr.py                  # PaddleOCR + Tesseract fallback
-│   │   ├── classifier.py           # CLIP zero-shot classification
-│   │   ├── rules.py                # Keyword rule engine
-│   │   ├── embeddings.py           # CLIP vectors → ChromaDB
-│   │   └── logger.py               # Rotating file + console logging
+│   ├── pipeline/                   # Data processing logic
+│   │   ├── ingestion.py            # Scan folder, hash files, insert to images table
+│   │   ├── preprocessor.py         # Enhance images for OCR (pure Pillow, no DB)
+│   │   ├── ocr.py                  # Tesseract OCR → ocr_results table
+│   │   ├── classifier.py           # Rule engine + CLIP → categories table + fts_index
+│   │   ├── rules.py                # Keyword dictionaries (pure Python, no DB)
+│   │   ├── embeddings.py           # CLIP encode → ChromaDB + embeddings table
+│   │   └── logger.py               # Setup rotating file loggers (no DB)
 │   │
-│   ├── db/                         # Database layer
-│   │   ├── schema.py               # SQLite DDL (tables, FTS5, indexes)
-│   │   ├── database.py             # Connection factory (WAL, FK, pragma)
-│   │   ├── ocr.py                  # OCR result read/write
-│   │   ├── categories.py           # Category + FTS5 operations
-│   │   └── search.py               # Keyword + hybrid search queries
+│   ├── db/                         # Database access layer
+│   │   ├── database.py             # get_connection() — opens SQLite with row_factory
+│   │   ├── schema.py               # CREATE TABLE statements — called once on startup
+│   │   ├── ocr.py                  # get_pending_images(), save_ocr_result()
+│   │   ├── categories.py           # save_category(), build_fts_index()
+│   │   └── search.py               # keyword_search(), semantic_search(), hybrid_search()
 │   │
 │   ├── api/                        # FastAPI application
-│   │   ├── main.py                 # App setup, CORS, lifespan
-│   │   ├── models.py               # Pydantic response schemas
+│   │   ├── main.py                 # App setup, CORS, lifespan (creates tables on startup)
+│   │   ├── models.py               # Pydantic response models (ImageBase, ImageDetail, etc.)
 │   │   └── routes/
-│   │       ├── search.py           # GET /search
-│   │       ├── images.py           # GET /images, thumbnails
-│   │       ├── categories.py       # GET /categories
-│   │       └── process.py          # POST /process/start
+│   │       ├── images.py           # /images endpoints + thumbnail generation
+│   │       ├── search.py           # /search endpoint (keyword/semantic/hybrid)
+│   │       ├── categories.py       # /categories endpoint
+│   │       └── process.py          # /process endpoint (triggers pipeline from web)
 │   │
 │   └── data/
-│       └── categories.json         # Editable category tree
+│       └── categories.json         # Category taxonomy used by rules.py
 │
-├── frontend/                       # Next.js 15 web app
+├── data/
+│   ├── library.db                  # SQLite database (8,615 images)
+│   ├── chroma/                     # ChromaDB HNSW index (8,615 vectors)
+│   └── logs/
+│       ├── pipeline.log
+│       ├── ocr.log
+│       ├── classifier.log
+│       └── embeddings.log
+│
+├── frontend/                       # Next.js web application
 │   ├── app/
-│   │   ├── layout.tsx              # Root layout, navbar, fonts
-│   │   ├── page.tsx                # Home: search + stats + categories
-│   │   ├── search/page.tsx         # Search results grid
-│   │   ├── library/page.tsx        # Category browser + sidebar
-│   │   └── image/[id]/page.tsx     # Image detail + OCR text
+│   │   ├── layout.tsx              # AppSidebar + theme script (wraps all pages)
+│   │   ├── globals.css             # Design tokens (CSS vars) + Tailwind import
+│   │   ├── page.tsx                # / (Home)
+│   │   ├── search/page.tsx         # /search
+│   │   ├── library/page.tsx        # /library
+│   │   └── image/[id]/page.tsx     # /image/{id} (detail view)
 │   ├── components/
-│   │   ├── SearchBar.tsx           # Search input (⌘K shortcut, mode toggle)
-│   │   ├── ImageCard.tsx           # Thumbnail + category badge + tags
-│   │   ├── ImageGrid.tsx           # Masonry grid with skeleton loading
-│   │   ├── Sidebar.tsx             # Category tree navigation
-│   │   └── Navbar.tsx              # Top navigation bar
-│   └── lib/
-│       └── api.ts                  # Typed fetch client for the backend
+│   │   ├── AppSidebar.tsx          # Navigation sidebar
+│   │   ├── ImageCard.tsx           # Screenshot thumbnail card
+│   │   ├── ImageGrid.tsx           # Grid layout for cards
+│   │   └── SearchBar.tsx           # Search input with mode toggle
+│   ├── lib/
+│   │   └── api.ts                  # API client functions (wraps fetch calls)
+│   ├── next.config.ts              # Next.js config
+│   └── postcss.config.mjs          # Tailwind CSS v4 PostCSS config
 │
-├── data/                           # Runtime data (not committed)
-│   ├── library.db                  # SQLite database (images + OCR + FTS5)
-│   ├── chroma/                     # ChromaDB vector store
-│   └── logs/                       # Pipeline logs
+├── scripts/                        # Utility/debug scripts
+│   ├── check_db.py                 # Print DB stats
+│   ├── db_summary.py               # Category distribution report
+│   ├── inspect_ocr.py              # Print OCR text for specific images
+│   └── test_semantic.py            # Test semantic search with 7 queries
 │
-├── scripts/                        # Legacy/diagnostic scripts
 ├── requirements.txt                # Python dependencies
-├── .gitignore
-└── README.md
+└── README.md                       # This file
+```
+
+### Dependency Graph (what calls what)
+
+```
+run_pipeline.py (CLI)
+  ├── pipeline/ingestion.py
+  │     ├── db/database.py     → opens library.db
+  │     └── db/schema.py       → creates tables if missing
+  │
+  ├── pipeline/ocr.py
+  │     ├── pipeline/preprocessor.py   (pure Pillow, no DB)
+  │     └── db/ocr.py          → reads images, writes ocr_results
+  │
+  ├── pipeline/classifier.py
+  │     ├── pipeline/rules.py  (pure Python keyword match, no DB)
+  │     └── db/categories.py   → writes categories + fts_index
+  │
+  └── pipeline/embeddings.py
+        └── data/chroma/       → ChromaDB HNSW index
+              embeddings table → pointer only (no vectors in SQLite)
+
+api/main.py (FastAPI)
+  ├── api/routes/images.py     → reads images + ocr_results + categories
+  │                                 Pillow for thumbnails
+  ├── api/routes/search.py     → db/search.py (FTS5)
+  │                               pipeline/embeddings.py (ChromaDB)
+  ├── api/routes/categories.py → db/categories.py
+  ├── api/routes/process.py    → pipeline/* (triggers pipeline from API)
+  └── api/models.py            → Pydantic models for all responses
+
+config.py ← imported by EVERYTHING
+  DATABASE = data/library.db
+  DEFAULT_SOURCE = C:\Users\Pratik\Pictures\MobScreenshots
+  CHROMA_DIR = data/chroma/
+  CLIP_MODEL = "clip-ViT-B-32"
+  CHECKPOINT_INTERVAL = 100
 ```
 
 ---
 
-## ⚙️ Configuration
+## 7. How to Run
 
-All settings live in `backend/config.py`. You can override them by editing that file directly — no environment variables required for a local install.
+### Prerequisites
 
-| Setting | Default | Description |
-|---|---|---|
-| `DEFAULT_SOURCE` | `~/Pictures/MobScreenshots` | Default screenshot folder |
-| `DATABASE` | `data/library.db` | SQLite database path |
-| `CHROMA_DIR` | `data/chroma/` | ChromaDB vector store |
-| `LOGS_DIR` | `data/logs/` | Log file directory |
-| `OCR_CONFIDENCE_THRESHOLD` | `50` | Below this, Tesseract fallback kicks in |
-| `OCR_MIN_WORDS` | `3` | Below this word count, also try fallback |
-| `PADDLE_LANG` | `en` | PaddleOCR language (`en`, `ch`, `hi`) |
-| `CLIP_MODEL` | `clip-ViT-B-32` | CLIP model for embeddings + classification |
-| `CHECKPOINT_INTERVAL` | `50` | Commit to DB every N images |
-| `THUMBNAIL_SIZE` | `(400, 400)` | Thumbnail dimensions in pixels |
-| `API_HOST` | `0.0.0.0` | API server host |
-| `API_PORT` | `8000` | API server port |
+```powershell
+# Check Python version (need 3.11+)
+python --version
 
-### Custom categories
+# Check Tesseract is installed
+tesseract --version
 
-Edit `backend/data/categories.json` to add your own categories:
-
-```json
-{
-  "Work": ["Meetings", "Projects", "Emails"],
-  "Health": ["Fitness", "Nutrition", "Medical"],
-  "Technology": ["Code & Development", "AI & Machine Learning"]
-}
+# Install Python dependencies
+pip install -r requirements.txt
 ```
 
-The rule engine (`backend/pipeline/rules.py`) can also be extended with your own keywords.
+### Running the Pipeline
 
----
+```powershell
+# From project root: C:\Users\Pratik\Documents\VSCode\Screenshot-Knowledge-Base
 
-## 🔧 Troubleshooting
+# Step 1: Scan and ingest all screenshots
+python -m backend.run_pipeline ingest
 
-### "tesseract is not installed or it's not in your PATH"
+# Step 2: Run OCR on all pending images
+python -m backend.run_pipeline ocr
 
-**Windows:** Install Tesseract from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki), then either:
-- Add `C:\Program Files\Tesseract-OCR` to your Windows PATH, or
-- The app will auto-detect it at that path on Windows
+# Step 3: Classify all images (rule engine + CLIP)
+python -m backend.run_pipeline classify
 
-**macOS:** `brew install tesseract`
-
-**Linux:** `sudo apt install tesseract-ocr`
-
----
-
-### "ModuleNotFoundError: No module named 'paddleocr'"
-
-PaddleOCR didn't install correctly (common on some Python versions). The app will automatically fall back to Tesseract-only mode and still work. To fix:
-
-```bash
-pip install paddlepaddle paddleocr
-```
-
----
-
-### "Cannot connect to backend" in the web app
-
-The FastAPI server isn't running. In Terminal 1, make sure this is running:
-
-```bash
-uvicorn backend.api.main:app --reload
-```
-
----
-
-### Pipeline stopped halfway through
-
-Just run the same command again:
-
-```bash
-python -m backend.run_pipeline process-all --source "C:\path\to\screenshots"
-```
-
-It will skip already-processed images (SHA-256 dedup) and continue from where it stopped.
-
----
-
-### "No module named 'backend'"
-
-You're running the command from the wrong directory. Make sure you're in the project root (where `backend/` folder is):
-
-```bash
-# You should see: backend/  frontend/  data/  requirements.txt  README.md
-ls   # macOS/Linux
-dir  # Windows
-```
-
-If not, `cd` to the project root first.
-
----
-
-### Semantic search returns no results
-
-ChromaDB embeddings haven't been generated yet. Run:
-
-```bash
+# Step 4: Generate CLIP embeddings for semantic search
 python -m backend.run_pipeline embed
+
+# --- OR run all 4 stages in one command ---
+python -m backend.run_pipeline process-all
+
+# Check database status
+python -m backend.run_pipeline status
 ```
+
+**Useful flags:**
+```powershell
+# Re-classify all images (even already classified)
+python -m backend.run_pipeline classify --force
+
+# Only process first 100 images (for testing)
+python -m backend.run_pipeline ocr --limit 100
+
+# Re-run OCR on previously failed images
+python -m backend.run_pipeline ocr --retry-failed
+```
+
+### Starting the Backend API
+
+```powershell
+cd C:\Users\Pratik\Documents\VSCode\Screenshot-Knowledge-Base
+uvicorn backend.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+API is now at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
+
+### Starting the Frontend
+
+```powershell
+cd C:\Users\Pratik\Documents\VSCode\Screenshot-Knowledge-Base\frontend
+npm run dev
+```
+
+Frontend is now at `http://localhost:3000`.
+
+### Both Together
+
+Open two PowerShell windows:
+- Window 1: `uvicorn backend.api.main:app --reload --host 127.0.0.1 --port 8000`
+- Window 2: `cd frontend ; npm run dev`
 
 ---
 
-### Frontend won't start — "npm: command not found"
+## 8. Current State
 
-Node.js isn't installed. Download it from [nodejs.org](https://nodejs.org/), install, then restart your terminal.
+**As of November 2026 (last pipeline run):**
 
----
+| Metric | Value |
+|--------|-------|
+| Total screenshots | 8,615 |
+| OCR processed | 8,615 (100%) |
+| Classified | 8,615 (100%) |
+| Embedded (CLIP) | 8,615 (100%) |
+| ChromaDB vectors | 8,615 |
+| Uncategorized | 173 (2% — down from 2,768 before CLIP) |
+| Rule-based classified | 5,847 (67.9%) |
+| CLIP zero-shot classified | 2,768 (32.1%) |
 
-## 🗺️ Roadmap
+**Category Distribution (top categories):**
 
-| Version | Features |
-|---|---|
-| **v1.0** ✅ | OCR pipeline, keyword search (FTS5), auto-categorisation, REST API, web UI |
-| **v1.1** 🔄 | Semantic search (CLIP + ChromaDB), hybrid search, duplicate detection UI |
-| **v2.0** 📋 | Natural language queries via local LLM (Ollama), "connections" between screenshots |
-| **v2.1** 📋 | Desktop app (Tauri), one-click installer for non-technical users |
-| **v3.0** 📋 | Multi-user support, collection sharing, mobile-friendly UI |
+| Category | Count |
+|----------|-------|
+| Instagram Posts | 1,503 |
+| Budgets | 544 |
+| Instagram Chats | 872 |
+| Chats & Messages | 534 |
+| Instagram | 563 |
+| UPI Transactions | 489 |
+| Receipts & Invoices | 480 |
+| Navigation | 287 |
+| Instagram Stories & Reels | 274 |
+| Profile Pictures | 233 |
+| Portraits | 229 |
+| Payment Apps | 203 |
+| Movies & Shows | 206 |
 
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how:
-
-1. **Fork** the repository on GitHub
-2. **Clone** your fork:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/Screenshot-Pipeline.git
-   ```
-3. **Create a branch** for your feature:
-   ```bash
-   git checkout -b feature/my-feature-name
-   ```
-4. **Make your changes**, commit them:
-   ```bash
-   git add .
-   git commit -m "feat: add my feature"
-   ```
-5. **Push** and open a Pull Request:
-   ```bash
-   git push origin feature/my-feature-name
-   ```
-
-### Commit message format
-
-We use [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat: add natural language search
-fix: handle corrupt image files gracefully
-docs: update installation guide
-refactor: split classifier into rule and CLIP modules
-```
+**Git:** `main` branch, last commit `443429a`, pushed to `https://github.com/pratikanpat/Screenshot-Pipeline`
 
 ---
 
-## 📄 License
+## 9. Design System & Frontend
 
-MIT License — see [LICENSE](LICENSE) for full text.
+The UI uses a custom design system built with CSS custom properties. Default theme is **dark mode**.
 
-```
-Copyright (c) 2026 Pratik Anpat
+### Color Tokens
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software.
-```
+| Token | Light Value | Dark Value | Usage |
+|-------|------------|------------|-------|
+| `--bg-canvas` | `#F3F0E9` | `#191917` | Page background (60%) |
+| `--bg-surface` | `#FBFAF7` | `#22221F` | Card backgrounds (30%) |
+| `--bg-elevated` | `#FFFFFF` | `#292824` | Modals, dropdowns |
+| `--text-primary` | `#24231F` | `#EEEAE2` | Headings, body text |
+| `--text-secondary` | `#77736B` | `#AAA397` | Captions, metadata |
+| `--border` | `#E4DED3` | `#39362F` | Dividers, card borders |
+| `--accent` | `#B65F43` | `#D58A6D` | Buttons, links, highlights (10%) |
+| `--accent-soft` | `#F1E3DA` | `#3A2A24` | Accent backgrounds |
+| `--success` | `#55765C` | `#8EAD88` | Success states |
+
+### Design Principles
+- **60-30-10 rule:** 60% canvas/surface, 30% secondary, 10% accent — not random
+- **Typography-first:** OCR text and metadata support the image, never compete
+- **No clutter:** Minimal chrome, screenshots are the content
+- **Editorial feel:** Warm tones, structured whitespace
 
 ---
 
-<div align="center">
+## 10. Errors & Fixes
 
-Built with 💙 by [Pratik Anpat](https://github.com/pratikanpat)
+| Error | Root Cause | Fix Applied |
+|-------|-----------|-------------|
+| Giant search icon filling entire screen | `next.config.ts` had broken `turbopack.rules["*.css"]` with `@tailwindcss/turbopack` loader — broke ALL CSS processing | Removed the turbopack block entirely; created `postcss.config.mjs` with `@tailwindcss/postcss` |
+| `pip install sentence-transformers` warning about protobuf | `streamlit` (also installed globally) had a protobuf version conflict | Warning only — packages installed fine. Ignored. |
+| `python -c "..."` with `{` characters in PowerShell | PowerShell interprets `{` as a block delimiter in `-c "..."` strings | Used separate `.py` script files instead of inline one-liners |
+| `ModuleNotFoundError: No module named 'backend'` in scripts | Scripts run directly from `scripts/` folder, not as Python modules | Added `sys.path.insert(0, parent_dir)` at top of each script in `scripts/` |
+| `git add -A` failed on `library.db-shm` | SQLite WAL mode holds a shared memory lock file while DB is open | Added `*.db-shm`, `*.db-wal`, `data/chroma/` to `.gitignore`; use `git add` selectively |
+| `SyntaxError: unterminated string literal` in inline python | f-string with backslash in PowerShell one-liner | Use external `.py` script files |
+| `ModuleNotFoundError: No module named 'PIL'` | Pillow not installed | `pip install Pillow` |
+| Tesseract not found | Binary not in PATH | Install from `https://github.com/UB-Mannheim/tesseract/wiki`, add to PATH |
 
-**[⭐ Star this repo](https://github.com/pratikanpat/Screenshot-Pipeline)** if it's useful to you!
+---
 
-</div>
+## 11. Roadmap
+
+### V1.1 — Better OCR (PaddleOCR)
+> Deferred — CLIP covers visual understanding adequately for now
+
+PaddleOCR handles dense text, tables, mixed Hindi/English content far better than Tesseract. When ready:
+```powershell
+pip install paddlepaddle paddleocr
+python -m backend.run_pipeline ocr --force   # re-process all with new engine
+```
+
+### V1.2 — UI Improvements
+- Filter sidebar by category/subcategory
+- Date range filter
+- Infinite scroll / virtual list for performance
+- Image detail panel (slide-in, not new page)
+- Keyboard navigation
+
+### V1.3 — Smart Re-classification
+- Confidence threshold: re-classify images where `confidence < 0.6` with better prompts
+- Multi-label: some screenshots belong in multiple categories
+- User corrections: allow manual re-labeling from UI
+
+### V1.4 — Connections & Relationships
+- Link screenshots that share common tags/people
+- Timeline view (screenshots organized by date)
+- "Similar to this" button on detail view (uses existing ChromaDB)
+
+### V1.5 — Natural Language Query
+- Ask questions like "show me all my Swiggy orders from March"
+- Use Gemini API (local model) or Ollama for query parsing
+- Route to keyword/semantic/filter combination automatically
+
+---
+
+## Requirements
+
+**Python packages** (`requirements.txt`):
+```
+fastapi
+uvicorn[standard]
+pillow
+pytesseract
+click
+tqdm
+pydantic
+torch
+sentence-transformers
+chromadb
+```
+
+**System requirements:**
+- Python 3.11+ (developed on 3.13)
+- Tesseract OCR binary (`winget install UB-Mannheim.TesseractOCR`)
+- Node.js 18+ (for frontend)
+- ~2 GB disk for CLIP model cache (`~/.cache/torch/`)
+- ~500 MB for ChromaDB index (8,615 images)
+
+---
+
+*ScreenshotKB — Built locally, runs privately, searches semantically.*
